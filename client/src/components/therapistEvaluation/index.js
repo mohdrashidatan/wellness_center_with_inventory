@@ -1,0 +1,1 @@
+import ConsentsList from "./ConsentsList";

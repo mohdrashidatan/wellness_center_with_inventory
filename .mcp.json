@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["@benborla29/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "192.168.0.202",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "rashid",
+        "MYSQL_PASS": "@19March1965",
+        "MYSQL_DB": "pwg_new",
+        "ALLOW_INSERT_OPERATION": "true",
+        "ALLOW_UPDATE_OPERATION": "true",
+        "ALLOW_DELETE_OPERATION": "true",
+        "SCHEMA_DDL_PERMISSIONS": "pwg_new"
+      }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    }
+  }
+}

@@ -1,0 +1,106 @@
+import { ProtectedRoute } from "../components/ProtectedRoute";
+import { NotFoundPage } from "../components/ErrorPage";
+import { PublicRoute } from "@/components/PublicRoute";
+import LoginPage from "@/pages/LoginPage";
+import Layout from "@/components/Layout";
+import StepsLayout from "@/components/StepsLayout";
+import DashboardPage from "@/pages/DashboardPage";
+import ProfilePage from "@/pages/ProfilePage";
+import CustomerRegistrationForm from "@/components/form/customerDataForm/CustomerRegistrationForm";
+import CustomerConsentForm from "@/components/form/consentForm/CustomerConsentForm";
+import CustomerEvaluationForm from "@/components/form/CustomerEvaluationForm";
+import CustomerFeedbackForm from "@/components/form/CustomerFeedbackForm";
+import CustomerReview from "@/components/form/CustomerReviewForm";
+import CustomerSteps from "@/pages/CustomerSteps";
+import SignupPage from "@/pages/SignupPage";
+import TherapistDashboard from "@/pages/TherapistDashboard";
+import Logout from "@/pages/auth/Logout";
+import TherapistEvaluation from "@/pages/TherapistEvaluation";
+import EvaluationForm from "@/components/form/evaluationForm/EvaluationForm";
+import Pos from "@/pages/Pos";
+
+import Checkout from "@/components/pos/Checkout";
+import PrintReceipt from "@/components/receiptPdf/PrintReceipt";
+import TransactionHistory from "@/pages/TransactionHistory";
+import UomPage from "@/pages/UomPage";
+import UsersPage from "@/pages/UsersPage";
+
+const privateRoutes = {
+  path: "/",
+  element: (
+    <ProtectedRoute>
+      <Layout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { index: true, element: <DashboardPage /> },
+    { path: "dashboard", element: <CustomerSteps /> },
+    { path: "profile", element: <ProfilePage /> },
+  ],
+};
+
+const stepsRoutes = {
+  path: "/steps",
+  element: (
+    <ProtectedRoute allowedRoles={["Customer"]}>
+      <StepsLayout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { path: "personal-data", element: <CustomerRegistrationForm /> },
+    { path: "consent", element: <CustomerConsentForm /> },
+    { path: "evaluation", element: <CustomerEvaluationForm /> },
+    { path: "review", element: <CustomerReview /> },
+    { path: "feedback", element: <CustomerFeedbackForm /> },
+    { path: "evaluation/dev", element: <EvaluationForm /> },
+  ],
+};
+
+const therapistRoutes = {
+  path: "/therapist",
+  element: (
+    <ProtectedRoute allowedRoles={["Therapist"]}>
+      <Layout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { path: "", element: <TherapistDashboard /> },
+    { path: "pos/:id", element: <Pos /> },
+    { path: "pos/", element: <Pos /> },
+    { path: "checkout", element: <Checkout /> },
+    { path: "printreceipt", element: <PrintReceipt /> },
+    { path: "evaluation/:id", element: <TherapistEvaluation /> },
+    { path: "transaction/:id", element: <TransactionHistory /> },
+    { path: "setup/uom", element: <UomPage /> },
+    { path: "setup/users", element: <UsersPage /> },
+  ],
+};
+
+const publicRoutes = [
+  {
+    path: "/login",
+    element: (
+      <PublicRoute>
+        <LoginPage />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/signup",
+    element: (
+      <PublicRoute>
+        <SignupPage />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/logout",
+    element: (
+      <PublicRoute>
+        <Logout />
+      </PublicRoute>
+    ),
+  },
+];
+
+export const routes = [...publicRoutes, privateRoutes, stepsRoutes, therapistRoutes, { path: "*", element: <NotFoundPage /> }];

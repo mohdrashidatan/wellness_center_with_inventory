@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "mcp__mysql__mysql_query",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(icacls:*)",
+      "Bash(git config:*)",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force ''D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\\\\.git'' -ErrorAction SilentlyContinue; Set-Location ''D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main''; git init; icacls ''.git'' /grant ''Everyone:\\(OI\\)\\(CI\\)F'' /T\")",
+      "Bash(powershell -Command \"Set-Location ''D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main''; & ''C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe'' add . 2>&1\")",
+      "Bash(powershell -Command \"\n$path = ''D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\\\\.git\\\\objects''\n$acl = Get-Acl $path\n$rule = New-Object System.Security.AccessControl.FileSystemAccessRule\\(''Everyone'',''FullControl'',''ContainerInherit,ObjectInherit'',''None'',''Allow''\\)\n$acl.SetAccessRule\\($rule\\)\nSet-Acl $path $acl\nWrite-Host ''Permissions set''\n\")",
+      "Bash(powershell -Command \"icacls 'D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\\\\.git\\\\objects' /grant 'Everyone:\\(OI\\)\\(CI\\)F' /T /Q:*)",
+      "Bash(cmd /c \"icacls \"\"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\\\\.git\\\\objects\"\" /grant Everyone:F /T /Q\")",
+      "Bash(cmd /c:*)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" init)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" status --short)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" add:*)",
+      "Bash(powershell -Command \"Add-MpPreference -ExclusionPath ''D:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main'' -ErrorAction Stop; Write-Host ''Exclusion added''\")",
+      "Bash(python3:*)",
+      "Bash(node -e \"\nconst fs = require\\(''fs''\\);\nconst base = ''d:\\\\\\\\System Projects\\\\\\\\AI Wellness Centre\\\\\\\\pwg-theraphy-main\\\\\\\\.git\\\\\\\\objects'';\nfor\\(let i=0;i<256;i++\\){\n  const d = base + ''\\\\\\\\'' + i.toString\\(16\\).padStart\\(2,''0''\\);\n  fs.mkdirSync\\(d, {recursive:true}\\);\n}\nconsole.log\\(''Created 256 dirs''\\);\n\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\);const b=''d:/System Projects/AI Wellness Centre/pwg-theraphy-main/.git/objects'';for\\(let i=0;i<256;i++\\){fs.mkdirSync\\(b+''/''+i.toString\\(16\\).padStart\\(2,''0''\\),{recursive:true}\\);}console.log\\(''done''\\);\")",
+      "Bash(git --version:*)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config core.fscache:*)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config core.preloadIndex true)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" add .)",
+      "Bash(git hash-object:*)"
+    ]
+  }
+}
