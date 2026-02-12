@@ -24,7 +24,13 @@
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config core.fscache:*)",
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config core.preloadIndex true)",
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" add .)",
-      "Bash(git hash-object:*)"
+      "Bash(git hash-object:*)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.name \"mohdrashidatan\")",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.email \"mra@primesolutions.com.sg\")",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.name)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.email)",
+      "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" remote add:*)",
+      "Bash(git -C:*)"
     ]
   }
 }
