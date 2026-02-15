@@ -1,4 +1,11 @@
 import { ProtectedRoute } from "../components/ProtectedRoute";
+
+const ComingSoon = ({ title }) => (
+  <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+    <h2 className="text-2xl font-semibold mb-2">{title}</h2>
+    <p className="text-sm">This module is under construction.</p>
+  </div>
+);
 import { NotFoundPage } from "../components/ErrorPage";
 import { PublicRoute } from "@/components/PublicRoute";
 import LoginPage from "@/pages/LoginPage";
@@ -24,6 +31,10 @@ import PrintReceipt from "@/components/receiptPdf/PrintReceipt";
 import TransactionHistory from "@/pages/TransactionHistory";
 import UomPage from "@/pages/UomPage";
 import UsersPage from "@/pages/UsersPage";
+import GrnReceivedPage from "@/pages/GrnReceivedPage";
+import GrnEntryPage from "@/pages/GrnEntryPage";
+import ProductsSetupPage from "@/pages/ProductsSetupPage";
+import ProductDetailPage from "@/pages/ProductDetailPage";
 
 const privateRoutes = {
   path: "/",
@@ -73,6 +84,14 @@ const therapistRoutes = {
     { path: "transaction/:id", element: <TransactionHistory /> },
     { path: "setup/uom", element: <UomPage /> },
     { path: "setup/users", element: <UsersPage /> },
+    { path: "setup/products", element: <ProductsSetupPage /> },
+    { path: "setup/products/:id", element: <ProductDetailPage /> },
+    { path: "sales/reports", element: <ComingSoon title="Sales Reports" /> },
+    { path: "stocks/reports", element: <ComingSoon title="Stock Reports" /> },
+    { path: "stocks/incoming", element: <GrnReceivedPage /> },
+    { path: "stocks/grn/new", element: <GrnEntryPage /> },
+    { path: "stocks/transfers", element: <ComingSoon title="Stock Transfers" /> },
+    { path: "stocks/adjustments", element: <ComingSoon title="Stock Adjustments" /> },
   ],
 };
 

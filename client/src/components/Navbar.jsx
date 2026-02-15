@@ -31,27 +31,49 @@ const Navbar = () => {
     navItems = [
       { path: "/", label: "Home" },
       { path: "/profile", label: "Profile" },
-      // Multiple dropdowns can be added here
+      {
+        label: "Stocks",
+        dropdown: [
+          { path: "/therapist/stocks/reports", label: "Reports" },
+          { path: "/therapist/stocks/incoming", label: "Received" },
+          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/adjustments", label: "Adjustments" },
+        ],
+      },
       {
         label: "Setup",
         dropdown: [
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
-          { path: "/setup/menu3", label: "Menu 3" },
+          { path: "/therapist/setup/products", label: "Products" },
         ],
       },
     ];
   } else {
     navItems = [
       { path: "/therapist", label: "Home" },
-      { path: "/therapist/pos", label: "Walkin POS" },
-      // Multiple dropdowns can be added here
+      {
+        label: "Sales",
+        dropdown: [
+          { path: "/therapist/sales/reports", label: "Reports" },
+          { path: "/therapist/pos", label: "Sales" },
+        ],
+      },
+      {
+        label: "Stocks",
+        dropdown: [
+          { path: "/therapist/stocks/reports", label: "Reports" },
+          { path: "/therapist/stocks/incoming", label: "Received" },
+          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/adjustments", label: "Adjustments" },
+        ],
+      },
       {
         label: "Setup",
         dropdown: [
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
-          { path: "/setup/menu3", label: "Menu 3" },
+          { path: "/therapist/setup/products", label: "Products" },
         ],
       },
     ];
@@ -111,7 +133,7 @@ const Navbar = () => {
                 <div className='absolute right-0 mt-2 w-48 bg-purple-500 rounded-md shadow-lg z-50 border border-gray-800'>
                   <Button variant='ghost' className='w-full flex items-center space-x-2 justify-start text-gray-200 hover:text-purple-400' onClick={() => navigate("/therapist/pos")}>
                     <User size={16} className='shrink-0' />
-                    <span>Walkin Pos</span>
+                    <span>Sales</span>
                   </Button>
                   <Button variant='ghost' className='w-full flex items-center space-x-2 justify-start text-gray-200 hover:text-red-400' onClick={handleLogout}>
                     <LogOut size={16} className='shrink-0' />

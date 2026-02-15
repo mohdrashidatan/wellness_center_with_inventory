@@ -12,6 +12,8 @@ const packagesRoute = require("./packagesRoute");
 const receiptRoute = require("./receiptRoute");
 const uomRoute = require("./uomRoute");
 const usersRoute = require("./usersRoute");
+const grnRoute = require("./grnRoute");
+const contactsRoute = require("./contactsRoute");
 
 const Router = express.Router();
 
@@ -29,5 +31,7 @@ Router.use("/package", packagesRoute);
 Router.use("/receipt", receiptRoute);
 Router.use("/uom", uomRoute);
 Router.use("/users", usersRoute);
+Router.use("/grn", grnRoute);
+Router.use("/contacts", contactsRoute);
 
 module.exports = Router;

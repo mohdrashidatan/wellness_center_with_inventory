@@ -5,4 +5,219 @@ const getData = async () => {
   return row;
 };
 
-module.exports = { getData };
+const searchSku = async (q) => {
+  const [rows] = await pool.query(
+    `SELECT ps.sku_id, ps.sku_code, ps.sku_name, ps.unitprice,
+            u.code AS base_uom_code
+     FROM product_sku ps
+     LEFT JOIN product_master pm ON pm.productid = ps.productid
+     LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     WHERE ps.is_active = 1
+       AND (ps.sku_code LIKE ? OR ps.sku_name LIKE ?)
+     ORDER BY ps.sku_code
+     LIMIT 20`,
+    [`%${q}%`, `%${q}%`]
+  );
+  return rows;
+};
+
+const getProductList = async ({ search = "", page = 1, limit = 10 }) => {
+  const offset = (page - 1) * limit;
+  const like = `%${search}%`;
+  const params = [like, like, like, limit, offset];
+
+  const [rows] = await pool.query(
+    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
+            p.packageprice, p.description, p.active,
+            u.code AS base_uom_code, u.name AS base_uom_name,
+            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked
+     FROM products p
+     LEFT JOIN product_master pm ON pm.productid = p.productid
+     LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     WHERE (p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?)
+     ORDER BY p.name
+     LIMIT ? OFFSET ?`,
+    params
+  );
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM products p
+     LEFT JOIN product_master pm ON pm.productid = p.productid
+     LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     WHERE (p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?)`,
+    [like, like, like]
+  );
+
+  return { rows, total };
+};
+
+const getProductById = async (id) => {
+  const [[row]] = await pool.query(
+    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
+            p.packageprice, p.description, p.active,
+            p.enteredby, p.entereddate, p.editedby, p.editeddate,
+            u.code AS base_uom_code, u.name AS base_uom_name,
+            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked
+     FROM products p
+     LEFT JOIN product_master pm ON pm.productid = p.productid
+     LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     WHERE p.productid = ?`,
+    [id]
+  );
+  return row || null;
+};
+
+const updateProduct = async (id, data) => {
+  const {
+    name, productcat, unitprice, baseprice, packageprice, description,
+    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked,
+  } = data;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE products
+       SET name=?, productcat=?, unitprice=?, baseprice=?, packageprice=?,
+           description=?, editeddate=NOW()
+       WHERE productid=?`,
+      [name, productcat, unitprice, baseprice, packageprice, description, id]
+    );
+
+    // upsert product_master
+    await conn.query(
+      `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         base_uom_id=VALUES(base_uom_id),
+         is_stock_item=VALUES(is_stock_item),
+         is_variant_enabled=VALUES(is_variant_enabled),
+         is_serialized=VALUES(is_serialized),
+         is_batch_tracked=VALUES(is_batch_tracked)`,
+      [id, base_uom_id || null, is_stock_item ? 1 : 0, is_variant_enabled ? 1 : 0,
+       is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0]
+    );
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+const deactivateProduct = async (id) => {
+  await pool.query(`UPDATE products SET active=0 WHERE productid=?`, [id]);
+};
+
+const findByName = async (name, excludeId = null) => {
+  const query = excludeId
+    ? `SELECT productid FROM products WHERE LOWER(name) = LOWER(?) AND productid <> ?`
+    : `SELECT productid FROM products WHERE LOWER(name) = LOWER(?)`;
+  const params = excludeId ? [name, excludeId] : [name];
+  const [[row]] = await pool.query(query, params);
+  return row || null;
+};
+
+const createProduct = async (data) => {
+  const {
+    name, productcat, unitprice, baseprice, packageprice, description,
+    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked,
+  } = data;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [result] = await conn.query(
+      `INSERT INTO products (name, productcat, unitprice, baseprice, packageprice, description, active, entereddate)
+       VALUES (?, ?, ?, ?, ?, ?, 1, NOW())`,
+      [name, productcat || "Product", unitprice || null, baseprice || null, packageprice || null, description || null]
+    );
+    const newId = result.insertId;
+
+    if (base_uom_id) {
+      await conn.query(
+        `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [newId, base_uom_id, is_stock_item ? 1 : 0, is_variant_enabled ? 1 : 0,
+         is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0]
+      );
+    }
+
+    await conn.commit();
+    return newId;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+const getProductTransactions = async (productId, { search = "", type = "", dateFrom = "", dateTo = "" } = {}) => {
+  const likeSearch = `%${search}%`;
+
+  // Build date filter condition (same column alias txn_date used in outer query)
+  const dateConditions = [];
+  const dateParams = [];
+  if (dateFrom) { dateConditions.push("txn_date >= ?"); dateParams.push(dateFrom); }
+  if (dateTo)   { dateConditions.push("txn_date <= ?"); dateParams.push(dateTo + " 23:59:59"); }
+
+  const dateWhere = dateConditions.length ? `AND ${dateConditions.join(" AND ")}` : "";
+  const typeWhere = type === "GRN" ? "AND txn_type = 'GRN'"
+                  : type === "POS" ? "AND txn_type = 'POS'"
+                  : "";
+
+  const sql = `
+    SELECT * FROM (
+      SELECT
+        'GRN'                                           AS txn_type,
+        CONCAT('GRN-', LPAD(g.grnid, 5, '0'))          AS ref_no,
+        g.receiptdate                                   AS txn_date,
+        gd.qty,
+        gd.uom,
+        NULL                                            AS unit_price,
+        NULL                                            AS total_price,
+        COALESCE(c.display_name, '')                   AS party,
+        COALESCE(gd.remarks, '')                        AS remarks,
+        g.grnid                                         AS ref_id
+      FROM grndetails gd
+      JOIN grnd g ON g.grnid = gd.grnid
+      LEFT JOIN contacts c ON c.contactid = g.contactid
+      JOIN product_sku ps ON ps.sku_id = gd.itemid
+      WHERE ps.productid = ?
+
+      UNION ALL
+
+      SELECT
+        'POS'                                           AS txn_type,
+        CONCAT('POS-', LPAD(h.posid, 5, '0'))           AS ref_no,
+        h.transdate                                     AS txn_date,
+        pl.qty,
+        NULL                                            AS uom,
+        pl.unit_price,
+        pl.total_price,
+        COALESCE(cust.name, h.walkinname, '')           AS party,
+        COALESCE(pl.remarks, '')                        AS remarks,
+        h.posid                                         AS ref_id
+      FROM poslines pl
+      JOIN poshd h ON h.posid = pl.posid
+      LEFT JOIN customers cust ON cust.customerid = h.customerid
+      WHERE pl.itemid = ?
+    ) AS txns
+    WHERE (ref_no LIKE ? OR party LIKE ? OR remarks LIKE ?)
+    ${typeWhere}
+    ${dateWhere}
+    ORDER BY txn_date DESC
+  `;
+
+  const params = [productId, productId, likeSearch, likeSearch, likeSearch, ...dateParams];
+  const [rows] = await pool.query(sql, params);
+  return rows;
+};
+
+module.exports = { getData, searchSku, getProductList, getProductById, updateProduct, deactivateProduct, findByName, createProduct, getProductTransactions };
