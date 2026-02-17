@@ -47,4 +47,61 @@ const getProductTransactions = async (productId, filters) => {
   return await products.getProductTransactions(productId, filters);
 };
 
-module.exports = { getDataProducts, searchSku, getProductList, getProductById, updateProduct, deactivateProduct, createProduct, getProductTransactions };
+// ─── Variants ─────────────────────────────────────────────────────────────────
+
+const getProductVariants = async (productId) => {
+  return await products.getVariantsByProduct(productId);
+};
+
+const createVariantOption = async (productId, data) => {
+  if (!data.option_name || !data.option_name.trim()) {
+    const err = new Error("Option name is required");
+    err.code = "VALIDATION";
+    throw err;
+  }
+  const newId = await products.createVariantOption(productId, data);
+  return { option_id: newId };
+};
+
+const updateVariantOption = async (optionId, data) => {
+  if (!data.option_name || !data.option_name.trim()) {
+    const err = new Error("Option name is required");
+    err.code = "VALIDATION";
+    throw err;
+  }
+  return await products.updateVariantOption(optionId, data);
+};
+
+const deactivateVariantOption = async (optionId) => {
+  return await products.deactivateVariantOption(optionId);
+};
+
+const addVariantValue = async (optionId, data) => {
+  if (!data.value_name || !data.value_name.trim()) {
+    const err = new Error("Value name is required");
+    err.code = "VALIDATION";
+    throw err;
+  }
+  const newId = await products.addVariantValue(optionId, data);
+  return { value_id: newId };
+};
+
+const updateVariantValue = async (valueId, data) => {
+  if (!data.value_name || !data.value_name.trim()) {
+    const err = new Error("Value name is required");
+    err.code = "VALIDATION";
+    throw err;
+  }
+  return await products.updateVariantValue(valueId, data);
+};
+
+const deactivateVariantValue = async (valueId) => {
+  return await products.deactivateVariantValue(valueId);
+};
+
+module.exports = {
+  getDataProducts, searchSku, getProductList, getProductById, updateProduct,
+  deactivateProduct, createProduct, getProductTransactions,
+  getProductVariants, createVariantOption, updateVariantOption, deactivateVariantOption,
+  addVariantValue, updateVariantValue, deactivateVariantValue,
+};

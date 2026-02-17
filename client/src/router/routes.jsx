@@ -35,6 +35,8 @@ import GrnReceivedPage from "@/pages/GrnReceivedPage";
 import GrnEntryPage from "@/pages/GrnEntryPage";
 import ProductsSetupPage from "@/pages/ProductsSetupPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
+import ProductVariantsPage from "@/pages/ProductVariantsPage";
+import SalesReportPage from "@/pages/SalesReportPage";
 
 const privateRoutes = {
   path: "/",
@@ -86,7 +88,8 @@ const therapistRoutes = {
     { path: "setup/users", element: <UsersPage /> },
     { path: "setup/products", element: <ProductsSetupPage /> },
     { path: "setup/products/:id", element: <ProductDetailPage /> },
-    { path: "sales/reports", element: <ComingSoon title="Sales Reports" /> },
+    { path: "setup/product-variants", element: <ProductVariantsPage /> },
+    { path: "sales/reports", element: <SalesReportPage /> },
     { path: "stocks/reports", element: <ComingSoon title="Stock Reports" /> },
     { path: "stocks/incoming", element: <GrnReceivedPage /> },
     { path: "stocks/grn/new", element: <GrnEntryPage /> },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, User, X, ChevronDown } from "lucide-react";
@@ -6,13 +6,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/utils/api";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [educationDropdownOpen, setEducationDropdownOpen] = useState(false);
   const [setupDropdownOpen, setSetupDropdownOpen] = useState(false);
+  const [coyname, setCoyname] = useState("");
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    api.get(`${API_BASE_URL}/api/possetup`)
+      .then((res) => setCoyname(res.data.coyname || ""))
+      .catch(() => {});
+  }, []);
   //   const userData = authService.getUserInfo();
 
   const location = useLocation();
@@ -46,6 +56,7 @@ const Navbar = () => {
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },
+          { path: "/therapist/setup/product-variants", label: "Product Variants" },
         ],
       },
     ];
@@ -74,6 +85,7 @@ const Navbar = () => {
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },
+          { path: "/therapist/setup/product-variants", label: "Product Variants" },
         ],
       },
     ];
@@ -87,8 +99,8 @@ const Navbar = () => {
           <div className='flex-shrink-0 transition-transform hover:scale-105'>
             {/* <img src={Logo} alt="Tatheer Logo" className="h-10 md:h-12 w-auto" /> */}
             <div className='flex-shrink-0 transition-transform hover:scale-105 flex items-center space-x-2'>
-              <img src='/pwglogo.svg' alt='Tatheer Logo' className='h-10 md:h-12 w-auto' />
-              <p className='text-blue-900 font-bold'>PRIFE WELLNESS GALLERY</p>
+              <img src='/tcpl-logo.png' alt='Company Logo' className='h-10 md:h-12 w-auto' />
+              {coyname && <p className='text-blue-900 font-bold'>{coyname}</p>}
             </div>
           </div>
 

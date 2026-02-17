@@ -6,7 +6,7 @@ import SearchBar from "@/shared/SearchBar";
 import { productsService } from "@/services/productsService";
 import { uomService } from "@/services/uomService";
 import toast from "react-hot-toast";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 
 const ITEMS_PER_PAGE = 10;
 const MAX_PAGE_BUTTONS = 5;
@@ -35,10 +35,103 @@ const emptyForm = {
   is_batch_tracked: false,
 };
 
+// Builds a draft option: { option_name, values: string[] }
+const emptyOption = () => ({ option_name: "", values: [""] });
+
+function VariantDraftEditor({ options, onChange }) {
+  const addOption = () => onChange([...options, emptyOption()]);
+
+  const removeOption = (idx) => onChange(options.filter((_, i) => i !== idx));
+
+  const setOptionName = (idx, val) => {
+    const next = options.map((o, i) => (i === idx ? { ...o, option_name: val } : o));
+    onChange(next);
+  };
+
+  const addValue = (optIdx) => {
+    const next = options.map((o, i) =>
+      i === optIdx ? { ...o, values: [...o.values, ""] } : o
+    );
+    onChange(next);
+  };
+
+  const removeValue = (optIdx, valIdx) => {
+    const next = options.map((o, i) =>
+      i === optIdx ? { ...o, values: o.values.filter((_, vi) => vi !== valIdx) } : o
+    );
+    onChange(next);
+  };
+
+  const setValue = (optIdx, valIdx, val) => {
+    const next = options.map((o, i) =>
+      i === optIdx
+        ? { ...o, values: o.values.map((v, vi) => (vi === valIdx ? val : v)) }
+        : o
+    );
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {options.map((opt, oi) => (
+        <div key={oi} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              className={`${inputCls} flex-1`}
+              placeholder="Option name (e.g. Size, Color)"
+              value={opt.option_name}
+              onChange={(e) => setOptionName(oi, e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => removeOption(oi)}
+              className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition">
+              <Trash2 size={14} />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center pl-1">
+            {opt.values.map((val, vi) => (
+              <span key={vi} className="inline-flex items-center gap-1">
+                <input
+                  className={`${inputCls} w-24`}
+                  placeholder="Value"
+                  value={val}
+                  onChange={(e) => setValue(oi, vi, e.target.value)}
+                />
+                {opt.values.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeValue(oi, vi)}
+                    className="text-gray-400 hover:text-red-400 transition">
+                    <X size={12} />
+                  </button>
+                )}
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() => addValue(oi)}
+              className="px-2 py-1 rounded border border-dashed border-gray-300 text-gray-400 text-xs hover:border-blue-400 hover:text-blue-500 transition">
+              <Plus size={11} className="inline" /> value
+            </button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addOption}
+        className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-dashed border-gray-300 text-sm text-gray-500 hover:border-green-500 hover:text-green-600 transition">
+        <Plus size={14} /> Add Option
+      </button>
+    </div>
+  );
+}
+
 function ProductCreateModal({ uomList, onSave, onClose }) {
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [form, setForm]         = useState(emptyForm);
+  const [saving, setSaving]     = useState(false);
   const [nameError, setNameError] = useState("");
+  const [variantDraft, setVariantDraft] = useState([emptyOption()]);
 
   const set = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -48,10 +141,37 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) return toast.error("Name is required");
+
+    // Validate variant draft when enabled
+    if (form.is_variant_enabled) {
+      const filled = variantDraft.filter((o) => o.option_name.trim());
+      for (const opt of filled) {
+        const validVals = opt.values.filter((v) => v.trim());
+        if (validVals.length === 0) {
+          return toast.error(`Option "${opt.option_name}" must have at least one value`);
+        }
+      }
+    }
+
     setSaving(true);
     setNameError("");
     try {
-      await onSave(form);
+      const product = await onSave(form);
+      // Save variant options after product creation
+      if (form.is_variant_enabled && product?.productid) {
+        const filled = variantDraft.filter((o) => o.option_name.trim());
+        for (const opt of filled) {
+          const { option_id } = await productsService.createVariantOption(product.productid, {
+            option_name: opt.option_name.trim(),
+          });
+          for (const val of opt.values.filter((v) => v.trim())) {
+            await productsService.addVariantValue(product.productid, option_id, {
+              value_name: val.trim(),
+            });
+          }
+        }
+        if (filled.length > 0) toast.success("Variants saved");
+      }
     } catch (err) {
       if (err?.response?.status === 409) {
         setNameError("A product with this name already exists.");
@@ -95,36 +215,18 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Unit Price</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={inputCls}
-              value={form.unitprice}
-              onChange={(e) => set("unitprice", e.target.value)}
-            />
+            <input type="number" min="0" step="0.01" className={inputCls}
+              value={form.unitprice} onChange={(e) => set("unitprice", e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Base Price</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={inputCls}
-              value={form.baseprice}
-              onChange={(e) => set("baseprice", e.target.value)}
-            />
+            <input type="number" min="0" step="0.01" className={inputCls}
+              value={form.baseprice} onChange={(e) => set("baseprice", e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Package Price</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={inputCls}
-              value={form.packageprice}
-              onChange={(e) => set("packageprice", e.target.value)}
-            />
+            <input type="number" min="0" step="0.01" className={inputCls}
+              value={form.packageprice} onChange={(e) => set("packageprice", e.target.value)} />
           </div>
         </div>
 
@@ -132,15 +234,11 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Base UOM</label>
-            <select
-              className={inputCls}
-              value={form.base_uom_id}
+            <select className={inputCls} value={form.base_uom_id}
               onChange={(e) => set("base_uom_id", e.target.value)}>
               <option value="">— Select UOM —</option>
               {uomList.map((u) => (
-                <option key={u.uom_id} value={u.uom_id}>
-                  {u.code} — {u.name}
-                </option>
+                <option key={u.uom_id} value={u.uom_id}>{u.code} — {u.name}</option>
               ))}
             </select>
           </div>
@@ -157,39 +255,35 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
               { key: "is_batch_tracked", label: "Batch Tracked" },
             ].map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={checkboxCls}
-                  checked={form[key]}
-                  onChange={(e) => set(key, e.target.checked)}
-                />
+                <input type="checkbox" className={checkboxCls} checked={form[key]}
+                  onChange={(e) => set(key, e.target.checked)} />
                 {label}
               </label>
             ))}
           </div>
         </div>
 
+        {/* Variant options (shown only when variant enabled) */}
+        {form.is_variant_enabled && (
+          <div className="border-t border-gray-100 pt-4">
+            <p className={`${labelCls} mb-2 font-medium text-gray-700`}>Variant Options</p>
+            <VariantDraftEditor options={variantDraft} onChange={setVariantDraft} />
+          </div>
+        )}
+
         {/* Description */}
         <div>
           <label className={labelCls}>Description</label>
-          <textarea
-            className={`${inputCls} resize-none`}
-            rows={3}
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
+          <textarea className={`${inputCls} resize-none`} rows={3}
+            value={form.description} onChange={(e) => set("description", e.target.value)} />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
+          <button type="button" onClick={onClose}
             className="px-4 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-100 transition">
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
+          <button type="submit" disabled={saving}
             className="px-4 py-2 rounded-md bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50 transition">
             {saving ? "Saving…" : "Create Product"}
           </button>
@@ -247,11 +341,12 @@ export default function ProductsSetupPage() {
 
   const handleCreate = async (formData) => {
     // throws on 409 — let the modal handle the error display
-    await productsService.createProduct(formData);
+    const product = await productsService.createProduct(formData);
     toast.success("Product created");
     setModal(null);
     setPage(1);
     fetchList(search, 1);
+    return product; // returned to modal so it can save variants
   };
 
   // Pagination helpers

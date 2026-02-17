@@ -220,4 +220,128 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
   return rows;
 };
 
-module.exports = { getData, searchSku, getProductList, getProductById, updateProduct, deactivateProduct, findByName, createProduct, getProductTransactions };
+// ─── Variants ─────────────────────────────────────────────────────────────────
+
+const getVariantsByProduct = async (productId) => {
+  const [options] = await pool.query(
+    `SELECT option_id, option_name, sort_order, is_active
+     FROM variant_option
+     WHERE productid = ?
+     ORDER BY sort_order, option_name`,
+    [productId]
+  );
+  if (options.length === 0) return [];
+
+  const optionIds = options.map((o) => o.option_id);
+  const [values] = await pool.query(
+    `SELECT value_id, option_id, value_name, sort_order, is_active
+     FROM variant_option_value
+     WHERE option_id IN (?)
+     ORDER BY sort_order, value_name`,
+    [optionIds]
+  );
+
+  return options.map((opt) => ({
+    ...opt,
+    values: values.filter((v) => v.option_id === opt.option_id),
+  }));
+};
+
+const createVariantOption = async (productId, { option_name, sort_order = 0 }) => {
+  const conn = await pool.getConnection();
+  try {
+    const [result] = await conn.query(
+      `INSERT INTO variant_option (productid, option_name, sort_order, is_active)
+       VALUES (?, ?, ?, 1)`,
+      [productId, option_name.trim(), sort_order]
+    );
+    return result.insertId;
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      const e = new Error("An option with this name already exists for this product");
+      e.code = "DUPLICATE_ENTRY";
+      throw e;
+    }
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+const updateVariantOption = async (optionId, { option_name, sort_order }) => {
+  await pool.query(
+    `UPDATE variant_option SET option_name=?, sort_order=? WHERE option_id=?`,
+    [option_name.trim(), sort_order ?? 0, optionId]
+  );
+};
+
+const getOptionUsageCount = async (optionId) => {
+  const [[{ cnt }]] = await pool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM product_sku_value psv
+     JOIN variant_option_value vov ON vov.value_id = psv.value_id
+     WHERE vov.option_id = ?`,
+    [optionId]
+  );
+  return cnt;
+};
+
+const deactivateVariantOption = async (optionId) => {
+  const usageCount = await getOptionUsageCount(optionId);
+  if (usageCount > 0) {
+    const err = new Error("Option is used by existing SKUs and cannot be removed");
+    err.code = "IN_USE";
+    throw err;
+  }
+  await pool.query(`UPDATE variant_option SET is_active=0 WHERE option_id=?`, [optionId]);
+};
+
+const addVariantValue = async (optionId, { value_name, sort_order = 0 }) => {
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO variant_option_value (option_id, value_name, sort_order, is_active)
+       VALUES (?, ?, ?, 1)`,
+      [optionId, value_name.trim(), sort_order]
+    );
+    return result.insertId;
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      const e = new Error("A value with this name already exists for this option");
+      e.code = "DUPLICATE_ENTRY";
+      throw e;
+    }
+    throw err;
+  }
+};
+
+const updateVariantValue = async (valueId, { value_name, sort_order }) => {
+  await pool.query(
+    `UPDATE variant_option_value SET value_name=?, sort_order=? WHERE value_id=?`,
+    [value_name.trim(), sort_order ?? 0, valueId]
+  );
+};
+
+const getValueUsageCount = async (valueId) => {
+  const [[{ cnt }]] = await pool.query(
+    `SELECT COUNT(*) AS cnt FROM product_sku_value WHERE value_id=?`,
+    [valueId]
+  );
+  return cnt;
+};
+
+const deactivateVariantValue = async (valueId) => {
+  const usageCount = await getValueUsageCount(valueId);
+  if (usageCount > 0) {
+    const err = new Error("Value is used by existing SKUs and cannot be removed");
+    err.code = "IN_USE";
+    throw err;
+  }
+  await pool.query(`UPDATE variant_option_value SET is_active=0 WHERE value_id=?`, [valueId]);
+};
+
+module.exports = {
+  getData, searchSku, getProductList, getProductById, updateProduct,
+  deactivateProduct, findByName, createProduct, getProductTransactions,
+  getVariantsByProduct, createVariantOption, updateVariantOption, deactivateVariantOption,
+  addVariantValue, updateVariantValue, deactivateVariantValue,
+};
