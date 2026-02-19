@@ -99,4 +99,128 @@ const updateCusPackagesRemainSession = async (exist, data) => {
   return result;
 };
 
-module.exports = { getData, insertCusPackages, getCusPackageData, minDataCusPackages, getCusPackageByPackageId, updateCusPackagesRemainSession };
+// ─── Setup Management ─────────────────────────────────────────────────────────
+
+/** All packages with all their detail lines (active + inactive) for the setup page */
+const getPackageList = async () => {
+  const [pkgs] = await pool.query(
+    `SELECT packageid, packagedesc, price, expiry_days, noofsession FROM package ORDER BY packageid`
+  );
+  if (pkgs.length === 0) return [];
+
+  const ids = pkgs.map((p) => p.packageid);
+  const [details] = await pool.query(
+    `SELECT pd.packagedetailsid, pd.packageid, pd.productid, pd.consumeprice, pd.active,
+            pr.name AS product_name, pr.productcat
+     FROM packagedetails pd
+     JOIN products pr ON pr.productid = pd.productid
+     WHERE pd.packageid IN (?)
+     ORDER BY pd.packagedetailsid`,
+    [ids]
+  );
+
+  return pkgs.map((pkg) => ({
+    ...pkg,
+    details: details.filter((d) => d.packageid === pkg.packageid),
+  }));
+};
+
+/** Create package header + detail lines in one transaction */
+const createPackage = async (data, userId) => {
+  const { packagedesc, price, expiry_days, noofsession, details = [] } = data;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [res] = await conn.query(
+      `INSERT INTO package (packagedesc, price, expiry_days, noofsession) VALUES (?, ?, ?, ?)`,
+      [packagedesc, price || 0, expiry_days || null, noofsession || null]
+    );
+    const newId = res.insertId;
+    for (const d of details) {
+      await conn.query(
+        `INSERT INTO packagedetails (packageid, productid, consumeprice, enteredby, entereddate, active)
+         VALUES (?, ?, ?, ?, NOW(), 1)`,
+        [newId, d.productid, d.consumeprice || 0, userId]
+      );
+    }
+    await conn.commit();
+    return newId;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+/** Update package header fields */
+const updatePackage = async (id, data) => {
+  const { packagedesc, price, expiry_days, noofsession } = data;
+  await pool.query(
+    `UPDATE package SET packagedesc=?, price=?, expiry_days=?, noofsession=? WHERE packageid=?`,
+    [packagedesc, price || 0, expiry_days || null, noofsession || null, id]
+  );
+};
+
+/** Add one detail line to an existing package */
+const addPackageDetail = async (packageId, data, userId) => {
+  const { productid, consumeprice } = data;
+  const [res] = await pool.query(
+    `INSERT INTO packagedetails (packageid, productid, consumeprice, enteredby, entereddate, active)
+     VALUES (?, ?, ?, ?, NOW(), 1)`,
+    [packageId, productid, consumeprice || 0, userId]
+  );
+  return res.insertId;
+};
+
+/** Update consume price of an existing detail line */
+const updatePackageDetail = async (detailId, data, userId) => {
+  await pool.query(
+    `UPDATE packagedetails SET consumeprice=?, editedby=?, editeddate=NOW() WHERE packagedetailsid=?`,
+    [data.consumeprice || 0, userId, detailId]
+  );
+};
+
+/** Soft-delete a detail line (active = 0) */
+const deactivatePackageDetail = async (detailId) => {
+  await pool.query(
+    `UPDATE packagedetails SET active=0 WHERE packagedetailsid=?`,
+    [detailId]
+  );
+};
+
+/** Customer package usage — all customers or filtered by package */
+const getCustomerPackageUsage = async ({ packageId = null, search = "" } = {}) => {
+  const conditions = [];
+  const params = [];
+  if (packageId) { conditions.push("cp.packageid = ?"); params.push(packageId); }
+  if (search) {
+    conditions.push("(c.name LIKE ? OR pkg.packagedesc LIKE ?)");
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const [rows] = await pool.query(
+    `SELECT cp.custpackageid, cp.customerid, cp.packageid,
+            cp.purchase_date, cp.expiry_date,
+            cp.origsessions, cp.remainsessions,
+            (cp.origsessions - cp.remainsessions) AS used_sessions,
+            c.name AS customer_name, c.email AS customer_email, c.contact_no,
+            pkg.packagedesc, pkg.price AS package_price
+     FROM custpackages cp
+     JOIN customers c ON c.customerid = cp.customerid
+     JOIN package pkg ON pkg.packageid = cp.packageid
+     ${where}
+     ORDER BY cp.purchase_date DESC`,
+    params
+  );
+  return rows;
+};
+
+module.exports = {
+  getData, insertCusPackages, getCusPackageData, minDataCusPackages,
+  getCusPackageByPackageId, updateCusPackagesRemainSession,
+  getPackageList, createPackage, updatePackage,
+  addPackageDetail, updatePackageDetail, deactivatePackageDetail,
+  getCustomerPackageUsage,
+};

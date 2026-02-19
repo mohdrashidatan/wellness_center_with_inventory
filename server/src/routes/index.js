@@ -14,6 +14,7 @@ const uomRoute = require("./uomRoute");
 const usersRoute = require("./usersRoute");
 const grnRoute = require("./grnRoute");
 const contactsRoute = require("./contactsRoute");
+const possetupRoute = require("./possetupRoute");
 
 const Router = express.Router();
 
@@ -33,5 +34,6 @@ Router.use("/uom", uomRoute);
 Router.use("/users", usersRoute);
 Router.use("/grn", grnRoute);
 Router.use("/contacts", contactsRoute);
+Router.use("/possetup", possetupRoute);
 
 module.exports = Router;

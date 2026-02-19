@@ -57,6 +57,7 @@ const Navbar = () => {
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },
           { path: "/therapist/setup/product-variants", label: "Product Variants" },
+          { path: "/therapist/setup/packages", label: "Packages" },
         ],
       },
     ];
@@ -86,6 +87,7 @@ const Navbar = () => {
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },
           { path: "/therapist/setup/product-variants", label: "Product Variants" },
+          { path: "/therapist/setup/packages", label: "Packages" },
         ],
       },
     ];

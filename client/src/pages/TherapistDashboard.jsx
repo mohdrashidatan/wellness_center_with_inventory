@@ -90,6 +90,7 @@ export default function TherapistDashboard() {
 
   return (
     <>
+      <h1 className='text-2xl font-bold text-gray-800 mb-3'>Customers</h1>
       <div className='flex justify-between items-center'>
         <SearcBar handleSearch={handleSearch} />
         <Button onClick={() => setOpenModalForm(true)} className='bg-prime-color hover:bg-prime-color-hover'>

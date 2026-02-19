@@ -58,14 +58,64 @@ export const packageService = {
     const token = authService.getToken();
     try {
       const response = await api.post(`${API_BASE_URL}/api/package/${id}`, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
     } catch (error) {
       console.error("Error registation", error);
       return error;
     }
+  },
+
+  // ─── Setup Management ──────────────────────────────────────────────────────
+  getPackageList: async () => {
+    const token = authService.getToken();
+    const res = await api.get(`${API_BASE_URL}/api/package/setup/list`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  createPackage: async (data) => {
+    const token = authService.getToken();
+    const res = await api.post(`${API_BASE_URL}/api/package/setup`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  updatePackage: async (id, data) => {
+    const token = authService.getToken();
+    const res = await api.put(`${API_BASE_URL}/api/package/setup/${id}`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  addPackageDetail: async (packageId, data) => {
+    const token = authService.getToken();
+    const res = await api.post(`${API_BASE_URL}/api/package/setup/${packageId}/details`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  updatePackageDetail: async (detailId, data) => {
+    const token = authService.getToken();
+    const res = await api.put(`${API_BASE_URL}/api/package/setup/details/${detailId}`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  deletePackageDetail: async (detailId) => {
+    const token = authService.getToken();
+    const res = await api.delete(`${API_BASE_URL}/api/package/setup/details/${detailId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+  getCustomerPackageUsage: async ({ packageId = "", search = "" } = {}) => {
+    const token = authService.getToken();
+    const params = new URLSearchParams({ packageId, search });
+    const res = await api.get(`${API_BASE_URL}/api/package/setup/customer-usage?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
   },
 };
