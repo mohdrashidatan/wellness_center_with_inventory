@@ -230,8 +230,7 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
       FROM grndetails gd
       JOIN grnd g ON g.grnid = gd.grnid
       LEFT JOIN contacts c ON c.contactid = g.contactid
-      JOIN product_sku ps ON ps.sku_id = gd.itemid
-      WHERE ps.productid = ?
+      WHERE gd.itemid = ?
 
       UNION ALL
 
