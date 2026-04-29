@@ -74,7 +74,7 @@ export default function GrnDetailView({ grnId }) {
               <TableRow className="bg-gray-100">
                 <TableHead className="w-8">#</TableHead>
                 <TableHead>Item Code</TableHead>
-                <TableHead>Item Name</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead>UOM</TableHead>
                 <TableHead>Consignment</TableHead>
@@ -92,8 +92,8 @@ export default function GrnDetailView({ grnId }) {
               {lines.map((ln, i) => (
                 <TableRow key={ln.grnlineid} className="text-sm">
                   <TableCell>{i + 1}</TableCell>
-                  <TableCell className="font-mono">{ln.sku_code || "—"}</TableCell>
-                  <TableCell>{ln.sku_name || "—"}</TableCell>
+                  <TableCell>{ln.product_name || "—"}</TableCell>
+                  <TableCell className="text-gray-500 text-xs">{ln.product_desc || "—"}</TableCell>
                   <TableCell className="text-right">{ln.qty}</TableCell>
                   <TableCell>{ln.uom || "—"}</TableCell>
                   <TableCell>
