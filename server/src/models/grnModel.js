@@ -13,7 +13,7 @@ const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, 
 
   if (itemSearch) {
     conditions.push(
-      "EXISTS (SELECT 1 FROM grndetails gd2 LEFT JOIN product_sku ps2 ON gd2.itemid = ps2.sku_id WHERE gd2.grnid = g.grnid AND gd2.active = 1 AND (ps2.sku_code LIKE ? OR ps2.sku_name LIKE ?))"
+      "EXISTS (SELECT 1 FROM grndetails gd2 LEFT JOIN products p2 ON gd2.itemid = p2.productid WHERE gd2.grnid = g.grnid AND gd2.active = 1 AND (p2.name LIKE ? OR p2.description LIKE ?))"
     );
     params.push(`%${itemSearch}%`, `%${itemSearch}%`);
   }
@@ -99,10 +99,10 @@ const getById = async (id) => {
         gd.uom,
         gd.consign,
         gd.remarks,
-        ps.sku_code,
-        ps.sku_name
+        p.name        AS product_name,
+        p.description AS product_desc
      FROM grndetails gd
-     LEFT JOIN product_sku ps ON gd.itemid = ps.sku_id
+     LEFT JOIN products p ON gd.itemid = p.productid
      WHERE gd.grnid = ? AND gd.active = 1
      ORDER BY gd.grnlineid`,
     [id]
