@@ -1,8 +1,37 @@
 const pool = require("../config/db");
 const getData = async () => {
-  const query = `SELECT * FROM products`;
-  const [row] = await pool.query(query);
+  const [row] = await pool.query(
+    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
+            p.packageprice, p.description, p.active,
+            pm.is_variant_enabled, pm.is_stock_item, pm.is_serialized, pm.is_batch_tracked
+     FROM products p
+     LEFT JOIN product_master pm ON pm.productid = p.productid
+     WHERE p.active = 1`
+  );
   return row;
+};
+
+const getProductSkus = async (productId) => {
+  const [skus] = await pool.query(
+    `SELECT ps.sku_id, ps.sku_code, ps.sku_name, ps.unitprice, ps.baseprice, ps.packageprice
+     FROM product_sku ps
+     WHERE ps.productid = ? AND ps.is_active = 1`,
+    [productId]
+  );
+  if (skus.length === 0) return [];
+
+  const skuIds = skus.map((s) => s.sku_id);
+  const [values] = await pool.query(
+    `SELECT psv.sku_id, psv.value_id
+     FROM product_sku_value psv
+     WHERE psv.sku_id IN (?)`,
+    [skuIds]
+  );
+
+  return skus.map((sku) => ({
+    ...sku,
+    value_ids: values.filter((v) => v.sku_id === sku.sku_id).map((v) => v.value_id),
+  }));
 };
 
 const searchSku = async (q) => {
@@ -15,6 +44,19 @@ const searchSku = async (q) => {
      WHERE ps.is_active = 1
        AND (ps.sku_code LIKE ? OR ps.sku_name LIKE ?)
      ORDER BY ps.sku_code
+     LIMIT 20`,
+    [`%${q}%`, `%${q}%`]
+  );
+  return rows;
+};
+
+const searchProducts = async (q) => {
+  const [rows] = await pool.query(
+    `SELECT productid, name, description
+     FROM products
+     WHERE active = 1
+       AND (name LIKE ? OR description LIKE ?)
+     ORDER BY name
      LIMIT 20`,
     [`%${q}%`, `%${q}%`]
   );
@@ -340,8 +382,9 @@ const deactivateVariantValue = async (valueId) => {
 };
 
 module.exports = {
-  getData, searchSku, getProductList, getProductById, updateProduct,
+  getData, searchSku, searchProducts, getProductList, getProductById, updateProduct,
   deactivateProduct, findByName, createProduct, getProductTransactions,
+  getProductSkus,
   getVariantsByProduct, createVariantOption, updateVariantOption, deactivateVariantOption,
   addVariantValue, updateVariantValue, deactivateVariantValue,
 };
