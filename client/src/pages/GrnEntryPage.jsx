@@ -69,7 +69,7 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
           {results.map((r) => (
             <div
-              key={r.id || r.sku_id || r.contactid}
+              key={r.productid || r.id || r.sku_id || r.contactid}
               className="px-3 py-2 text-sm hover:bg-purple-50 cursor-pointer"
               onMouseDown={() => choose(r)}
             >
@@ -337,10 +337,10 @@ export default function GrnEntryPage() {
                         onSearch={grnService.searchProducts}
                         onSelect={(p) => handleProductSelect(ln._key, p)}
                         renderOption={(p) => (
-                          <div>
+                          <div className="overflow-hidden">
                             <span className="font-medium text-gray-800">{p.name}</span>
                             {p.description && (
-                              <span className="ml-2 text-gray-400 text-xs truncate">{p.description}</span>
+                              <span className="ml-2 text-gray-400 text-xs">{p.description}</span>
                             )}
                           </div>
                         )}
