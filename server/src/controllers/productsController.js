@@ -1,4 +1,5 @@
 const productsService = require("../services/productsService");
+const { searchProducts } = require("../models/productsModel");
 
 const getProducts = async (req, res) => {
   try {
@@ -17,6 +18,17 @@ const searchSku = async (req, res) => {
     res.status(200).json(data);
   } catch (error) {
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const searchProductsHandler = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return res.json([]);
+    const rows = await searchProducts(q);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Internal server error" });
   }
 };
 
@@ -86,6 +98,17 @@ const getProductTransactions = async (req, res) => {
     res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching product transactions:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const getProductSkus = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data = await productsService.getProductSkus(id);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Error fetching product SKUs:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -178,8 +201,9 @@ const deleteVariantValue = async (req, res) => {
 };
 
 module.exports = {
-  getProducts, searchSku, getProductList, getProductById, updateProduct,
+  getProducts, searchSku, searchProductsHandler, getProductList, getProductById, updateProduct,
   deactivateProduct, createProduct, getProductTransactions,
+  getProductSkus,
   getProductVariants, createVariantOption, updateVariantOption, deleteVariantOption,
   addVariantValue, updateVariantValue, deleteVariantValue,
 };
