@@ -1,5 +1,4 @@
 const productsService = require("../services/productsService");
-const { searchProducts } = require("../models/productsModel");
 
 const getProducts = async (req, res) => {
   try {
@@ -24,9 +23,9 @@ const searchSku = async (req, res) => {
 const searchProductsHandler = async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
-    if (!q) return res.json([]);
-    const rows = await searchProducts(q);
-    res.json(rows);
+    if (!q) return res.status(200).json([]);
+    const rows = await productsService.searchProducts(q);
+    res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message || "Internal server error" });
   }

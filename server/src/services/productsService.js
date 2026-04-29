@@ -16,6 +16,11 @@ const searchSku = async (q) => {
   return await products.searchSku(q.trim());
 };
 
+const searchProducts = async (q) => {
+  if (!q || q.trim().length < 1) return [];
+  return await products.searchProducts(q.trim());
+};
+
 const getProductList = async ({ search, page, limit }) => {
   return await products.getProductList({ search, page, limit });
 };
@@ -45,6 +50,10 @@ const createProduct = async (data) => {
 
 const getProductTransactions = async (productId, filters) => {
   return await products.getProductTransactions(productId, filters);
+};
+
+const getProductSkus = async (productId) => {
+  return await products.getProductSkus(productId);
 };
 
 // ─── Variants ─────────────────────────────────────────────────────────────────
@@ -100,8 +109,9 @@ const deactivateVariantValue = async (valueId) => {
 };
 
 module.exports = {
-  getDataProducts, searchSku, getProductList, getProductById, updateProduct,
+  getDataProducts, searchSku, searchProducts, getProductList, getProductById, updateProduct,
   deactivateProduct, createProduct, getProductTransactions,
+  getProductSkus,
   getProductVariants, createVariantOption, updateVariantOption, deactivateVariantOption,
   addVariantValue, updateVariantValue, deactivateVariantValue,
 };
