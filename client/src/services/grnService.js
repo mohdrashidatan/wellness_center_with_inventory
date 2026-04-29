@@ -21,9 +21,9 @@ export const grnService = {
     return response.data;
   },
 
-  searchSku: async (q) => {
+  searchProducts: async (q) => {
     const response = await api.get(
-      `${API_BASE_URL}/api/products/sku/search?q=${encodeURIComponent(q)}`,
+      `${API_BASE_URL}/api/products/search?q=${encodeURIComponent(q)}`,
       authHeader()
     );
     return response.data;
