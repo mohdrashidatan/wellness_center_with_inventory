@@ -11,17 +11,16 @@ import Modal from "@/shared/Modal";
 const today = () => new Date().toISOString().split("T")[0];
 
 const emptyLine = (consign = false) => ({
-  _key:        Math.random().toString(36).slice(2),
-  itemid:      "",
-  sku_code:    "",
-  sku_name:    "",
-  qty:         "",
-  uom:         "",
-  base_uom:    "",
+  _key:         Math.random().toString(36).slice(2),
+  productid:    "",
+  product_name: "",
+  product_desc: "",
+  qty:          "",
+  uom:          "",
   consign,
-  batch_no:    "",
-  expiry_date: "",
-  remarks:     "",
+  batch_no:     "",
+  expiry_date:  "",
+  remarks:      "",
 });
 
 /* ─── Lookup input (shared for supplier & item) ─────────────────── */
@@ -157,11 +156,11 @@ export default function GrnEntryPage() {
 
   const removeLine = (key) => setLines((prev) => prev.filter((l) => l._key !== key));
 
-  const handleSkuSelect = (key, sku) => {
+  const handleProductSelect = (key, product) => {
     setLines((prev) =>
       prev.map((l) =>
         l._key === key
-          ? { ...l, itemid: sku.sku_id, sku_code: sku.sku_code, sku_name: sku.sku_name, uom: sku.base_uom_code || l.uom }
+          ? { ...l, productid: product.productid, product_name: product.name, product_desc: product.description || "" }
           : l
       )
     );
@@ -176,7 +175,7 @@ export default function GrnEntryPage() {
     if (!header.receiptdate) { toast.error("Received date is required"); return; }
     if (lines.length === 0)  { toast.error("Add at least one item line"); return; }
     for (let i = 0; i < lines.length; i++) {
-      if (!lines[i].itemid)      { toast.error(`Line ${i + 1}: Item code is required`); return; }
+      if (!lines[i].productid)   { toast.error(`Line ${i + 1}: Item is required`); return; }
       if (!lines[i].qty || parseFloat(lines[i].qty) <= 0) { toast.error(`Line ${i + 1}: Qty must be > 0`); return; }
     }
 
@@ -190,7 +189,7 @@ export default function GrnEntryPage() {
           remarks:           header.remarks,
         },
         lines: lines.map((l) => ({
-          itemid:      l.itemid,
+          itemid:      l.productid,
           qty:         parseFloat(l.qty),
           uom:         l.uom,
           consign:     l.consign ? 1 : 0,
@@ -317,22 +316,32 @@ export default function GrnEntryPage() {
                   {/* # */}
                   <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
 
-                  {/* Item code lookup */}
+                  {/* Product lookup */}
                   <td className="px-3 py-2">
-                    {ln.itemid ? (
+                    {ln.productid ? (
                       <div className="flex items-center gap-1">
-                        <span className="font-mono text-xs text-purple-700 font-semibold">{ln.sku_code}</span>
-                        <button onClick={() => updateLine(ln._key, "itemid", "") || updateLine(ln._key, "sku_code", "") || updateLine(ln._key, "sku_name", "")} className="text-red-400 text-xs">✕</button>
+                        <span className="text-xs text-purple-700 font-semibold truncate max-w-[120px]">{ln.product_name}</span>
+                        <button
+                          onClick={() => setLines((prev) =>
+                            prev.map((l) => l._key === ln._key
+                              ? { ...l, productid: "", product_name: "", product_desc: "" }
+                              : l
+                            )
+                          )}
+                          className="text-red-400 text-xs"
+                        >✕</button>
                       </div>
                     ) : (
                       <LookupInput
-                        placeholder="Search SKU…"
-                        onSearch={grnService.searchSku}
-                        onSelect={(sku) => handleSkuSelect(ln._key, sku)}
-                        renderOption={(s) => (
-                          <div className="flex gap-2">
-                            <span className="font-mono text-purple-600 text-xs">{s.sku_code}</span>
-                            <span className="text-gray-600 truncate">{s.sku_name}</span>
+                        placeholder="Search product…"
+                        onSearch={grnService.searchProducts}
+                        onSelect={(p) => handleProductSelect(ln._key, p)}
+                        renderOption={(p) => (
+                          <div>
+                            <span className="font-medium text-gray-800">{p.name}</span>
+                            {p.description && (
+                              <span className="ml-2 text-gray-400 text-xs truncate">{p.description}</span>
+                            )}
                           </div>
                         )}
                       />
@@ -342,7 +351,7 @@ export default function GrnEntryPage() {
                   {/* Description (auto-filled, read-only) */}
                   <td className="px-3 py-2">
                     <input
-                      value={ln.sku_name}
+                      value={ln.product_desc}
                       readOnly
                       tabIndex={-1}
                       placeholder="Auto-populated"
