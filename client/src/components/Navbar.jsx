@@ -46,7 +46,7 @@ const Navbar = () => {
         dropdown: [
           { path: "/therapist/stocks/reports", label: "Reports" },
           { path: "/therapist/stocks/incoming", label: "Received" },
-          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/transfers", label: "Transfers Out" },
           { path: "/therapist/stocks/adjustments", label: "Adjustments" },
         ],
       },
@@ -76,7 +76,7 @@ const Navbar = () => {
         dropdown: [
           { path: "/therapist/stocks/reports", label: "Reports" },
           { path: "/therapist/stocks/incoming", label: "Received" },
-          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/transfers", label: "Transfers Out" },
           { path: "/therapist/stocks/adjustments", label: "Adjustments" },
         ],
       },

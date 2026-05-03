@@ -49,6 +49,11 @@ export default function Pos() {
     setSelectedData([]);
   };
 
+  const handleTransactionComplete = () => {
+    setSelectedData([]);
+    setReceiptModal(false);
+  };
+
   return (
     <>
       <p className='text-blue-600 hover:underline my-2 cursor-pointer' onClick={() => navigate("/therapist")}>
@@ -78,7 +83,7 @@ export default function Pos() {
               item?.packageid ? (
                 <InventorySelectedPackage key={index} item={item} packagedesc={item.packagedesc} price={item.price} packageName={item.packageName} amount={item.amount} setSelectedData={setSelectedData} selectedData={selectedData} index={index} packageid={item.packageid} />
               ) : (
-                <InventorySelectedItem key={index} id={item.id} name={item.name} price={item.price} amount={item.amount} setSelectedData={setSelectedData} selectedData={selectedData} index={index} subPrice={item.subPrice} />
+                <InventorySelectedItem key={index} id={item.id} name={item.name} variantLabel={item.variantLabel} price={item.price} amount={item.amount} setSelectedData={setSelectedData} selectedData={selectedData} index={index} subPrice={item.subPrice} />
               )
             )}
 
@@ -101,7 +106,7 @@ export default function Pos() {
               <Modal setIsOpen={setReceiptModal}>
                 {" "}
                 <div className='max-h-[600px] overflow-y-auto'>
-                  <Checkout selectedData={selectedData} personData={customerData} formWalkinData={formWalkinData} setSelectedData={setSelectedData} />
+                  <Checkout selectedData={selectedData} personData={customerData} formWalkinData={formWalkinData} setSelectedData={setSelectedData} onComplete={handleTransactionComplete} />
                 </div>
               </Modal>
             )}

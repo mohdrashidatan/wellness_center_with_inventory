@@ -52,11 +52,13 @@ const searchSku = async (q) => {
 
 const searchProducts = async (q) => {
   const [rows] = await pool.query(
-    `SELECT productid, name, description
-     FROM products
-     WHERE active = 1
-       AND (name LIKE ? OR description LIKE ?)
-     ORDER BY name
+    `SELECT p.productid, p.name, p.description, u.code AS base_uom_code
+     FROM products p
+     LEFT JOIN product_master pm ON pm.productid = p.productid
+     LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     WHERE p.active = 1
+       AND (p.name LIKE ? OR p.description LIKE ?)
+     ORDER BY p.name
      LIMIT 20`,
     [`%${q}%`, `%${q}%`]
   );
@@ -72,10 +74,14 @@ const getProductList = async ({ search = "", page = 1, limit = 10 }) => {
     `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
             p.packageprice, p.description, p.active,
             u.code AS base_uom_code, u.name AS base_uom_name,
-            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked
+            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked,
+            COALESCE(grn.qty_in, 0) - COALESCE(pos.qty_out, 0) - COALESCE(doq.qty_out, 0) AS qty_on_hand
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
+     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_in  FROM grndetails GROUP BY itemid) grn ON grn.itemid = p.productid
+     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_out FROM poslines   GROUP BY itemid) pos ON pos.itemid = p.productid
+     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_out FROM dodetails  GROUP BY itemid) doq ON doq.itemid = p.productid
      WHERE (p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?)
      ORDER BY p.name
      LIMIT ? OFFSET ?`,
@@ -212,6 +218,7 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
   const dateWhere = dateConditions.length ? `AND ${dateConditions.join(" AND ")}` : "";
   const typeWhere = type === "GRN" ? "AND txn_type = 'GRN'"
                   : type === "POS" ? "AND txn_type = 'POS'"
+                  : type === "DO"  ? "AND txn_type = 'DO'"
                   : "";
 
   const sql = `
@@ -228,7 +235,7 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
         COALESCE(gd.remarks, '')                        AS remarks,
         g.grnid                                         AS ref_id
       FROM grndetails gd
-      JOIN grnd g ON g.grnid = gd.grnid
+      JOIN grnhd g ON g.grnid = gd.grnid
       LEFT JOIN contacts c ON c.contactid = g.contactid
       WHERE gd.itemid = ?
 
@@ -238,7 +245,7 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
         'POS'                                           AS txn_type,
         CONCAT('POS-', LPAD(h.posid, 5, '0'))           AS ref_no,
         h.transdate                                     AS txn_date,
-        pl.qty,
+        -pl.qty                                         AS qty,
         NULL                                            AS uom,
         pl.unit_price,
         pl.total_price,
@@ -249,6 +256,24 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
       JOIN poshd h ON h.posid = pl.posid
       LEFT JOIN customers cust ON cust.customerid = h.customerid
       WHERE pl.itemid = ?
+
+      UNION ALL
+
+      SELECT
+        'DO'                                            AS txn_type,
+        CONCAT('DO-', LPAD(h.doid, 5, '0'))            AS ref_no,
+        h.transdate                                     AS txn_date,
+        -dd.qty                                         AS qty,
+        dd.uom,
+        NULL                                            AS unit_price,
+        NULL                                            AS total_price,
+        COALESCE(c.display_name, '')                   AS party,
+        COALESCE(dd.remarks, '')                        AS remarks,
+        h.doid                                          AS ref_id
+      FROM dodetails dd
+      JOIN dohd h ON h.doid = dd.doid
+      LEFT JOIN contacts c ON c.contactid = h.contactid
+      WHERE dd.itemid = ?
     ) AS txns
     WHERE (ref_no LIKE ? OR party LIKE ? OR remarks LIKE ?)
     ${typeWhere}
@@ -256,7 +281,7 @@ const getProductTransactions = async (productId, { search = "", type = "", dateF
     ORDER BY txn_date DESC
   `;
 
-  const params = [productId, productId, likeSearch, likeSearch, likeSearch, ...dateParams];
+  const params = [productId, productId, productId, likeSearch, likeSearch, likeSearch, ...dateParams];
   const [rows] = await pool.query(sql, params);
   return rows;
 };

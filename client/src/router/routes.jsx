@@ -33,6 +33,8 @@ import UomPage from "@/pages/UomPage";
 import UsersPage from "@/pages/UsersPage";
 import GrnReceivedPage from "@/pages/GrnReceivedPage";
 import GrnEntryPage from "@/pages/GrnEntryPage";
+import DoListPage from "@/pages/DoListPage";
+import DoEntryPage from "@/pages/DoEntryPage";
 import ProductsSetupPage from "@/pages/ProductsSetupPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import ProductVariantsPage from "@/pages/ProductVariantsPage";
@@ -95,7 +97,8 @@ const therapistRoutes = {
     { path: "stocks/reports", element: <ComingSoon title="Stock Reports" /> },
     { path: "stocks/incoming", element: <GrnReceivedPage /> },
     { path: "stocks/grn/new", element: <GrnEntryPage /> },
-    { path: "stocks/transfers", element: <ComingSoon title="Stock Transfers" /> },
+    { path: "stocks/transfers", element: <DoListPage /> },
+    { path: "stocks/do/new", element: <DoEntryPage /> },
     { path: "stocks/adjustments", element: <ComingSoon title="Stock Adjustments" /> },
   ],
 };

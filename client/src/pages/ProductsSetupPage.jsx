@@ -402,6 +402,7 @@ export default function ProductsSetupPage() {
               <TableHead className="w-12">#</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead className="text-right w-28">Qty on Hand</TableHead>
               <TableHead>Base UOM</TableHead>
               <TableHead className="text-right">Unit Price</TableHead>
               <TableHead className="text-right">Base Price</TableHead>
@@ -412,13 +413,13 @@ export default function ProductsSetupPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                <TableCell colSpan={9} className="text-center py-10 text-gray-400">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                <TableCell colSpan={9} className="text-center py-10 text-gray-400">
                   No products found.
                 </TableCell>
               </TableRow>
@@ -441,6 +442,14 @@ export default function ProductsSetupPage() {
                       }`}>
                       {fmt(row.productcat)}
                     </span>
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold ${
+                    row.qty_on_hand == null ? "text-gray-400"
+                    : row.qty_on_hand < 0   ? "text-red-600"
+                    : row.qty_on_hand === 0  ? "text-gray-400"
+                    : "text-gray-800"
+                  }`}>
+                    {row.qty_on_hand ?? "—"}
                   </TableCell>
                   <TableCell>{fmt(row.base_uom_code)}</TableCell>
                   <TableCell className="text-right">{fmtPrice(row.unitprice)}</TableCell>

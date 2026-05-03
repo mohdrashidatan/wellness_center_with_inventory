@@ -31,4 +31,95 @@ const getPosLineCusData = async (id) => {
   return rows;
 };
 
-module.exports = { addPosHd, addPosLine, getPosHdCusData, getPosLineCusData };
+// ─── Sales Report ─────────────────────────────────────────────────────────────
+
+const getSalesHeaders = async ({ search = "", dateFrom = "", dateTo = "", page = 1, limit = 20 }) => {
+  const offset = (page - 1) * limit;
+  const conditions = [];
+  const params = [];
+
+  if (search) {
+    conditions.push(`(COALESCE(c.name, h.walkinname) LIKE ? OR h.posid LIKE ? OR h.payment_method LIKE ?)`);
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
+  if (dateFrom) { conditions.push(`DATE(h.transdate) >= ?`); params.push(dateFrom); }
+  if (dateTo)   { conditions.push(`DATE(h.transdate) <= ?`); params.push(dateTo); }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const [rows] = await pool.query(
+    `SELECT h.posid, h.transdate, h.total_amount, h.payment_method, h.remarks,
+            h.walkin, h.walkinname, h.walkincontactno,
+            COALESCE(c.name, h.walkinname) AS customer_name,
+            COALESCE(c.contact_no, h.walkincontactno) AS contact_no,
+            t.therapistname AS therapist_name
+     FROM poshd h
+     LEFT JOIN customers c ON c.customerid = h.customerid
+     LEFT JOIN therapists t ON t.therapistsid = h.therapist_id
+     ${where}
+     ORDER BY h.transdate DESC, h.posid DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM poshd h
+     LEFT JOIN customers c ON c.customerid = h.customerid
+     LEFT JOIN therapists t ON t.therapistsid = h.therapist_id
+     ${where}`,
+    params
+  );
+
+  return { rows, total };
+};
+
+const getSalesDetails = async ({ search = "", dateFrom = "", dateTo = "", posid = "", page = 1, limit = 20 }) => {
+  const offset = (page - 1) * limit;
+  const conditions = [];
+  const params = [];
+
+  if (search) {
+    conditions.push(`(COALESCE(p.name, pk.packagedesc) LIKE ? OR h.posid LIKE ?)`);
+    const like = `%${search}%`;
+    params.push(like, like);
+  }
+  if (posid)    { conditions.push(`h.posid = ?`); params.push(posid); }
+  if (dateFrom) { conditions.push(`DATE(h.transdate) >= ?`); params.push(dateFrom); }
+  if (dateTo)   { conditions.push(`DATE(h.transdate) <= ?`); params.push(dateTo); }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const [rows] = await pool.query(
+    `SELECT l.poslinesid, l.posid, h.transdate,
+            l.productcat, l.itemid,
+            COALESCE(p.name, pk.packagedesc) AS item_name,
+            l.qty, l.unit_price, l.disc, l.discpercent, l.total_price, l.oriprice, l.remarks,
+            COALESCE(c.name, h.walkinname) AS customer_name
+     FROM poslines l
+     JOIN poshd h ON h.posid = l.posid
+     LEFT JOIN products p ON p.productid = l.itemid AND l.productcat IN ('Product','Service')
+     LEFT JOIN package pk ON pk.packageid = l.itemid AND l.productcat = 'Package'
+     LEFT JOIN customers c ON c.customerid = h.customerid
+     ${where}
+     ORDER BY h.transdate DESC, l.posid DESC, l.poslinesid
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM poslines l
+     JOIN poshd h ON h.posid = l.posid
+     LEFT JOIN products p ON p.productid = l.itemid AND l.productcat IN ('Product','Service')
+     LEFT JOIN package pk ON pk.packageid = l.itemid AND l.productcat = 'Package'
+     LEFT JOIN customers c ON c.customerid = h.customerid
+     ${where}`,
+    params
+  );
+
+  return { rows, total };
+};
+
+module.exports = { addPosHd, addPosLine, getPosHdCusData, getPosLineCusData, getSalesHeaders, getSalesDetails };

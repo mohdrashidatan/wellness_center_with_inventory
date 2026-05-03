@@ -1,14 +1,14 @@
 const pool = require("../config/db");
 
-const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, page, limit }) => {
+const getList = async ({ recipientName, itemSearch, dateFrom, dateTo, dateExact, page, limit }) => {
   const offset = (page - 1) * limit;
 
   const conditions = ["g.active = 1", "gd.active = 1"];
   const params = [];
 
-  if (supplierName) {
+  if (recipientName) {
     conditions.push("c.display_name LIKE ?");
-    params.push(`%${supplierName}%`);
+    params.push(`%${recipientName}%`);
   }
 
   if (itemSearch) {
@@ -17,15 +17,15 @@ const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, 
   }
 
   if (dateExact) {
-    conditions.push("DATE(g.receiptdate) = ?");
+    conditions.push("DATE(g.transdate) = ?");
     params.push(dateExact);
   } else {
     if (dateFrom) {
-      conditions.push("DATE(g.receiptdate) >= ?");
+      conditions.push("DATE(g.transdate) >= ?");
       params.push(dateFrom);
     }
     if (dateTo) {
-      conditions.push("DATE(g.receiptdate) <= ?");
+      conditions.push("DATE(g.transdate) <= ?");
       params.push(dateTo);
     }
   }
@@ -33,62 +33,58 @@ const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, 
   const where = conditions.join(" AND ");
 
   const baseQuery = `
-    FROM grndetails gd
-    JOIN grnhd g ON g.grnid = gd.grnid
+    FROM dodetails gd
+    JOIN dohd g ON g.doid = gd.doid
     LEFT JOIN contacts c ON c.contactid = g.contactid
     LEFT JOIN products p ON p.productid = gd.itemid
     WHERE ${where}
   `;
 
-  const [countRows] = await pool.query(
-    `SELECT COUNT(*) AS total, COALESCE(SUM(gd.qty), 0) AS total_qty ${baseQuery}`,
-    params
-  );
-  const { total, total_qty } = countRows[0];
+  const [countRows] = await pool.query(`SELECT COUNT(*) AS total ${baseQuery}`, params);
+  const total = countRows[0].total;
 
   const [rows] = await pool.query(
     `SELECT
-        g.grnid,
-        g.receiptdate,
-        g.delivery_order_no,
-        c.display_name  AS supplier_name,
+        g.doid,
+        g.transdate     AS transferdate,
+        g.reference     AS delivery_order_no,
+        c.display_name  AS recipient_name,
         p.name          AS product_name,
-        p.description   AS product_desc,
         gd.qty,
         gd.uom,
         gd.batch_no,
         gd.expiry_date,
         gd.remarks
      ${baseQuery}
-     ORDER BY g.receiptdate DESC, g.grnid DESC, gd.grnlineid
+     ORDER BY g.transdate DESC, g.doid DESC, gd.dolineid
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
 
-  return { total, total_qty, rows };
+  return { total, rows };
 };
 
 const getById = async (id) => {
   const [[header]] = await pool.query(
     `SELECT
-        g.grnid,
-        g.receiptdate,
+        g.doid,
+        g.transdate     AS transferdate,
+        g.reference     AS delivery_order_no,
         g.remarks,
-        g.printed,
         c.contactid,
-        c.display_name   AS supplier_name,
-        c.code           AS supplier_code,
-        c.phone          AS supplier_phone,
-        c.email          AS supplier_email,
-        c.contact_person AS supplier_contact_person,
+        c.display_name   AS recipient_name,
+        c.code           AS recipient_code,
+        c.phone          AS recipient_phone,
+        c.email          AS recipient_email,
+        c.contact_person AS recipient_contact_person,
         c.billing_address1,
         c.billing_address2,
         c.billing_city,
         c.billing_postal_code,
         c.billing_country
-     FROM grnhd g
-     LEFT JOIN contacts c ON g.contactid = c.contactid
-     WHERE g.grnid = ? AND g.active = 1`,
+     FROM dohd g
+     LEFT JOIN contacts c ON c.contactid = g.contactid
+     WHERE g.doid = ? AND g.active = 1`,
     [id]
   );
 
@@ -96,55 +92,55 @@ const getById = async (id) => {
 
   const [lines] = await pool.query(
     `SELECT
-        gd.grnlineid,
+        gd.dolineid,
         gd.qty,
         gd.uom,
-        gd.consign,
+        gd.batch_no,
+        gd.expiry_date,
         gd.remarks,
         p.name        AS product_name,
         p.description AS product_desc
-     FROM grndetails gd
-     LEFT JOIN products p ON gd.itemid = p.productid
-     WHERE gd.grnid = ? AND gd.active = 1
-     ORDER BY gd.grnlineid`,
+     FROM dodetails gd
+     LEFT JOIN products p ON p.productid = gd.itemid
+     WHERE gd.doid = ? AND gd.active = 1
+     ORDER BY gd.dolineid`,
     [id]
   );
 
   return { header, lines };
 };
 
-const create = async ({ contactid, receiptdate, delivery_order_no, remarks, enteredby }, lines) => {
+const create = async ({ contactid, transferdate, delivery_order_no, remarks, enteredby }, lines) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
     const [hResult] = await conn.query(
-      `INSERT INTO grnhd (contactid, receiptdate, delivery_order_no, remarks, enteredby, entereddate, active)
+      `INSERT INTO dohd (contactid, transdate, reference, remarks, enteredby, entereddate, active)
        VALUES (?, ?, ?, ?, ?, NOW(), 1)`,
-      [contactid || null, receiptdate, delivery_order_no || null, remarks || null, enteredby || null]
+      [contactid || null, transferdate, delivery_order_no || null, remarks || null, enteredby || null]
     );
-    const grnid = hResult.insertId;
+    const doid = hResult.insertId;
 
     for (const ln of lines) {
       await conn.query(
-        `INSERT INTO grndetails (grnid, itemid, qty, uom, consign, remarks, batch_no, expiry_date, enteredby, entereddate, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)`,
+        `INSERT INTO dodetails (doid, itemid, qty, uom, batch_no, expiry_date, remarks, enteredby, entereddate, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)`,
         [
-          grnid,
+          doid,
           ln.itemid || null,
           ln.qty || 0,
           ln.uom || null,
-          ln.consign ? 1 : 0,
-          ln.remarks || null,
           ln.batch_no || null,
           ln.expiry_date || null,
+          ln.remarks || null,
           enteredby || null,
         ]
       );
     }
 
     await conn.commit();
-    return grnid;
+    return doid;
   } catch (err) {
     await conn.rollback();
     throw err;

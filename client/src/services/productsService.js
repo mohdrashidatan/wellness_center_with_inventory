@@ -62,6 +62,14 @@ export const productsService = {
     return response.data;
   },
 
+  getProductSkus: async (id) => {
+    const token = authService.getToken();
+    const response = await api.get(`${API_BASE_URL}/api/products/${id}/skus`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
   // ─── Variants ───────────────────────────────────────────────────────────────
   getProductVariants: async (id) => {
     const token = authService.getToken();

@@ -1,7 +1,10 @@
 import { CreditCard, ScrollText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/utils/api";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { Input } from "@/components/ui/input";
 import { posService } from "@/services/posService";
@@ -19,13 +22,22 @@ import { saveAs } from "file-saver";
 //pages
 import { PrintReceipt, EmailReceipt } from "@/components/receiptPdf";
 
-export default function Checkout({ selectedData, personData, formWalkinData, setSelectedData }) {
+export default function Checkout({ selectedData, personData, formWalkinData, setSelectedData, onComplete }) {
   const navigate = useNavigate();
   const [receiptLoading, setReceiptLoading] = useState(false);
   const { user, loading } = useAuth();
   const [saved, setSaved] = useState(false);
   const [discountShow, setDiscountShow] = useState(false);
   const [email, setEmail] = useState();
+  const [posSetup, setPosSetup] = useState({});
+  const [receiptId, setReceiptId] = useState(null);
+  const [receiptDate, setReceiptDate] = useState(null);
+
+  useEffect(() => {
+    api.get(`${API_BASE_URL}/api/possetup`)
+      .then((res) => setPosSetup(res.data || {}))
+      .catch(() => {});
+  }, []);
 
   const location = useLocation();
 
@@ -33,6 +45,10 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
   const tax = totalPrice * 0.1;
 
   const handlePrint = () => {
+    window.onafterprint = () => {
+      window.onafterprint = null;
+      if (onComplete) onComplete();
+    };
     window.print();
   };
 
@@ -41,7 +57,7 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
       // makes dokument PDF
       setReceiptLoading((prev) => !prev);
       const totalPrice = selectedData.reduce((total, item) => total + item.subPrice * 1, 0).toFixed(2);
-      const blob = await pdf(<EmailReceipt selectedData={selectedData} personData={personData} discountShow={discountShow} totalPrice={totalPrice} />).toBlob();
+      const blob = await pdf(<EmailReceipt selectedData={selectedData} personData={personData} formWalkinData={formWalkinData} discountShow={discountShow} totalPrice={totalPrice} posSetup={posSetup} receiptId={receiptId} receiptDate={receiptDate} paymentMethod={formPaymentData.paymentMethod} />).toBlob();
 
       // sent via FormData
       const formData = new FormData();
@@ -52,6 +68,7 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
 
       if (result.sent) {
         alert("Email Sent!");
+        if (onComplete) onComplete();
       } else {
         alert("Sending fail!");
       }
@@ -106,6 +123,8 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
 
       await posService.poslineInsert(posLineData);
       toast.success("Success Saved");
+      setReceiptId(idResult);
+      setReceiptDate(new Date());
       setSaved(true);
     } catch (error) {
       console.log(error);
@@ -239,7 +258,7 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
                 </div>
               </div>
               <div className='print-only' id='print-area'>
-                <PrintReceipt selectedData={selectedData} personData={personData} discountShow={discountShow} />
+                <PrintReceipt selectedData={selectedData} personData={personData} formWalkinData={formWalkinData} discountShow={discountShow} posSetup={posSetup} receiptId={receiptId} receiptDate={receiptDate} paymentMethod={formPaymentData.paymentMethod} />
               </div>
               {formPaymentData.receiptOption && (
                 <>
@@ -247,7 +266,6 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
                     <Button onClick={handlePrint}>Print</Button>
                   ) : (
                     <Button onClick={handleSendEmail}>
-                      {" "}
                       {receiptLoading && <LoaderCircle className='animate-spin' />}
                       Sent Email
                     </Button>
