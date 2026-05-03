@@ -33,4 +33,9 @@ export const doService = {
     const response = await api.get(`${API_BASE_URL}/api/do/${id}`, authHeader());
     return response.data;
   },
+
+  update: async (id, payload) => {
+    const response = await api.put(`${API_BASE_URL}/api/do/${id}`, payload, authHeader());
+    return response.data;
+  },
 };

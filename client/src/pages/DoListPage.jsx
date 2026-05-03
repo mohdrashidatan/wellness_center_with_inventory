@@ -5,7 +5,7 @@ import {
   TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Search, X, Plus } from "lucide-react";
+import { Eye, Pencil, Search, X, Plus } from "lucide-react";
 import Modal from "@/shared/Modal";
 import { doService } from "@/services/doService";
 import DoDetailView from "@/components/do/DoDetailView";
@@ -253,6 +253,7 @@ export default function DoListPage() {
               <TableRow className="bg-orange-50">
                 <TableHead className="w-28">DO No.</TableHead>
                 <TableHead>Transfer Date</TableHead>
+                <TableHead className="w-32">Type</TableHead>
                 <TableHead>DO Reference</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Item</TableHead>
@@ -262,19 +263,20 @@ export default function DoListPage() {
                 <TableHead className="w-28">Expiry Date</TableHead>
                 <TableHead>Remarks</TableHead>
                 <TableHead className="w-12 text-center">View</TableHead>
+                <TableHead className="w-12 text-center">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={13} className="text-center text-gray-400 py-10">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={13} className="text-center text-gray-400 py-10">
                     No records found
                   </TableCell>
                 </TableRow>
@@ -288,6 +290,16 @@ export default function DoListPage() {
                     DO-{String(r.doid).padStart(5, "0")}
                   </TableCell>
                   <TableCell>{fmtDate(r.transferdate)}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                      r.transtype === "Consign Sales"   ? "bg-blue-100 text-blue-700"
+                      : r.transtype === "Consign Return" ? "bg-teal-100 text-teal-700"
+                      : r.transtype === "Loan Out"       ? "bg-purple-100 text-purple-700"
+                      : "bg-gray-100 text-gray-500"
+                    }`}>
+                      {r.transtype || "—"}
+                    </span>
+                  </TableCell>
                   <TableCell>{r.delivery_order_no || "—"}</TableCell>
                   <TableCell>{r.recipient_name || "—"}</TableCell>
                   <TableCell>{r.product_name || "—"}</TableCell>
@@ -303,6 +315,15 @@ export default function DoListPage() {
                       title="View DO Details"
                     >
                       <Eye className="w-4 h-4" />
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      onClick={() => navigate(`/therapist/stocks/do/${r.doid}/edit`)}
+                      className="p-1 rounded hover:text-orange-500 transition-colors"
+                      title="Edit DO"
+                    >
+                      <Pencil className="w-4 h-4" />
                     </button>
                   </TableCell>
                 </TableRow>

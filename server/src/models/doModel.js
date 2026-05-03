@@ -47,6 +47,7 @@ const getList = async ({ recipientName, itemSearch, dateFrom, dateTo, dateExact,
     `SELECT
         g.doid,
         g.transdate     AS transferdate,
+        g.transtype,
         g.reference     AS delivery_order_no,
         c.display_name  AS recipient_name,
         p.name          AS product_name,
@@ -69,6 +70,7 @@ const getById = async (id) => {
     `SELECT
         g.doid,
         g.transdate     AS transferdate,
+        g.transtype,
         g.reference     AS delivery_order_no,
         g.remarks,
         c.contactid,
@@ -93,6 +95,7 @@ const getById = async (id) => {
   const [lines] = await pool.query(
     `SELECT
         gd.dolineid,
+        gd.itemid     AS productid,
         gd.qty,
         gd.uom,
         gd.batch_no,
@@ -110,15 +113,15 @@ const getById = async (id) => {
   return { header, lines };
 };
 
-const create = async ({ contactid, transferdate, delivery_order_no, remarks, enteredby }, lines) => {
+const create = async ({ txn_type, contactid, transferdate, delivery_order_no, remarks, enteredby }, lines) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
     const [hResult] = await conn.query(
-      `INSERT INTO dohd (contactid, transdate, reference, remarks, enteredby, entereddate, active)
-       VALUES (?, ?, ?, ?, ?, NOW(), 1)`,
-      [contactid || null, transferdate, delivery_order_no || null, remarks || null, enteredby || null]
+      `INSERT INTO dohd (transtype, contactid, transdate, reference, remarks, enteredby, entereddate, active)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)`,
+      [txn_type || null, contactid || null, transferdate, delivery_order_no || null, remarks || null, enteredby || null]
     );
     const doid = hResult.insertId;
 
@@ -149,4 +152,36 @@ const create = async ({ contactid, transferdate, delivery_order_no, remarks, ent
   }
 };
 
-module.exports = { getList, getById, create };
+const update = async (id, { txn_type, contactid, transferdate, delivery_order_no, remarks }, lines) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE dohd
+       SET transtype=?, contactid=?, transdate=?, reference=?, remarks=?
+       WHERE doid=? AND active=1`,
+      [txn_type || null, contactid || null, transferdate, delivery_order_no || null, remarks || null, id]
+    );
+
+    // Soft-delete existing lines then re-insert
+    await conn.query(`UPDATE dodetails SET active=0 WHERE doid=?`, [id]);
+
+    for (const ln of lines) {
+      await conn.query(
+        `INSERT INTO dodetails (doid, itemid, qty, uom, batch_no, expiry_date, remarks, entereddate, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1)`,
+        [id, ln.itemid || null, ln.qty || 0, ln.uom || null, ln.batch_no || null, ln.expiry_date || null, ln.remarks || null]
+      );
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+module.exports = { getList, getById, create, update };

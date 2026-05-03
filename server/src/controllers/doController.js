@@ -1,5 +1,14 @@
 const doService = require("../services/doService");
 
+const update = async (req, res) => {
+  try {
+    const data = await doService.update(req.params.id, req.body);
+    res.status(200).json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || "Internal server error" });
+  }
+};
+
 const getList = async (req, res) => {
   try {
     const data = await doService.getList(req.query);
@@ -28,4 +37,4 @@ const create = async (req, res) => {
   }
 };
 
-module.exports = { getList, getById, create };
+module.exports = { getList, getById, create, update };

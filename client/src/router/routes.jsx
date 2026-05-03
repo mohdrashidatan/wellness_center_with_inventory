@@ -35,6 +35,7 @@ import GrnReceivedPage from "@/pages/GrnReceivedPage";
 import GrnEntryPage from "@/pages/GrnEntryPage";
 import DoListPage from "@/pages/DoListPage";
 import DoEntryPage from "@/pages/DoEntryPage";
+import DoEditPage from "@/pages/DoEditPage";
 import ProductsSetupPage from "@/pages/ProductsSetupPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import ProductVariantsPage from "@/pages/ProductVariantsPage";
@@ -99,6 +100,7 @@ const therapistRoutes = {
     { path: "stocks/grn/new", element: <GrnEntryPage /> },
     { path: "stocks/transfers", element: <DoListPage /> },
     { path: "stocks/do/new", element: <DoEntryPage /> },
+    { path: "stocks/do/:id/edit", element: <DoEditPage /> },
     { path: "stocks/adjustments", element: <ComingSoon title="Stock Adjustments" /> },
   ],
 };

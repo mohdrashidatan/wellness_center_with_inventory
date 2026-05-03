@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
 import { doService } from "@/services/doService";
@@ -9,7 +9,10 @@ import toast from "react-hot-toast";
 import Modal from "@/shared/Modal";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
-const today = () => new Date().toISOString().split("T")[0];
+const toDateInput = (val) => {
+  if (!val) return "";
+  return val.split("T")[0];
+};
 
 const emptyLine = () => ({
   _key:         Math.random().toString(36).slice(2),
@@ -118,22 +121,47 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
 }
 
 /* ─── Main Component ─────────────────────────────────────────────── */
-export default function DoEntryPage() {
-  const navigate = useNavigate();
+export default function DoEditPage() {
+  const { id }     = useParams();
+  const navigate   = useNavigate();
 
-  const [header, setHeader] = useState({
-    txn_type:          "Consign Sales",
-    contactid:         "",
-    recipient_name:    "",
-    transferdate:      today(),
-    delivery_order_no: "",
-    remarks:           "",
-  });
-
-  const [lines, setLines]               = useState([emptyLine()]);
+  const [header, setHeader] = useState(null);
+  const [lines, setLines]   = useState([]);
+  const [loadError, setLoadError]               = useState(null);
   const [newRecipientModal, setNewRecipientModal] = useState(false);
   const [newRecipientName, setNewRecipientName]   = useState("");
-  const [saving, setSaving]             = useState(false);
+  const [saving, setSaving]                       = useState(false);
+
+  /* ── Load existing DO ── */
+  useEffect(() => {
+    doService.getById(id)
+      .then(({ header: h, lines: ls }) => {
+        setHeader({
+          txn_type:          h.transtype || "Consign Sales",
+          contactid:         h.contactid || "",
+          recipient_name:    h.recipient_name || "",
+          transferdate:      toDateInput(h.transferdate),
+          delivery_order_no: h.delivery_order_no || "",
+          remarks:           h.remarks || "",
+        });
+        setLines(
+          ls.length > 0
+            ? ls.map((l) => ({
+                _key:         Math.random().toString(36).slice(2),
+                productid:    l.productid || "",
+                product_name: l.product_name || "",
+                product_desc: l.product_desc || "",
+                qty:          l.qty ?? "",
+                uom:          l.uom || "",
+                batch_no:     l.batch_no || "",
+                expiry_date:  toDateInput(l.expiry_date),
+                remarks:      l.remarks || "",
+              }))
+            : [emptyLine()]
+        );
+      })
+      .catch(() => setLoadError("Failed to load Delivery Order"));
+  }, [id]);
 
   const setHdr = (field, val) => setHeader((p) => ({ ...p, [field]: val }));
 
@@ -170,13 +198,7 @@ export default function DoEntryPage() {
     setLines((prev) =>
       prev.map((l) =>
         l._key === key
-          ? {
-              ...l,
-              productid:    product.productid,
-              product_name: product.name,
-              product_desc: product.description || "",
-              uom:          product.base_uom_code || "",
-            }
+          ? { ...l, productid: product.productid, product_name: product.name, product_desc: product.description || "", uom: product.base_uom_code || "" }
           : l
       )
     );
@@ -197,7 +219,7 @@ export default function DoEntryPage() {
 
     setSaving(true);
     try {
-      await doService.create({
+      await doService.update(id, {
         header: {
           txn_type:          header.txn_type,
           contactid:         header.contactid || null,
@@ -214,18 +236,33 @@ export default function DoEntryPage() {
           expiry_date: l.expiry_date || null,
         })),
       });
-      toast.success("Delivery Order saved successfully");
+      toast.success("Delivery Order updated successfully");
       navigate("/therapist/stocks/transfers");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to save Delivery Order");
+      toast.error(err?.response?.data?.message || "Failed to update Delivery Order");
     } finally {
       setSaving(false);
     }
   };
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-red-500">{loadError}</p>
+        <Button variant="outline" onClick={() => navigate("/therapist/stocks/transfers")}>Back to List</Button>
+      </div>
+    );
+  }
+
+  if (!header) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
+  }
+
   return (
     <div className="space-y-6 pb-10">
-      <h1 className="text-xl font-bold text-orange-700">New Delivery Order</h1>
+      <h1 className="text-xl font-bold text-orange-700">
+        Edit Delivery Order — DO-{String(id).padStart(5, "0")}
+      </h1>
 
       {/* ══ Section 1 — Header ══════════════════════════════════ */}
       <section className="bg-orange-50 border border-orange-200 rounded-xl p-5 space-y-4">
@@ -360,6 +397,7 @@ export default function DoEntryPage() {
                       </div>
                     ) : (
                       <LookupInput
+                        key={ln._key}
                         placeholder="Search product…"
                         onSearch={doService.searchProducts}
                         onSelect={(p) => handleProductSelect(ln._key, p)}
@@ -481,9 +519,9 @@ export default function DoEntryPage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-orange-600 hover:bg-orange-700 min-w-[130px]"
+            className="bg-orange-600 hover:bg-orange-700 min-w-[160px]"
           >
-            {saving ? "Saving…" : "Save Delivery Order"}
+            {saving ? "Saving…" : "Update Delivery Order"}
           </Button>
         </div>
       </section>
