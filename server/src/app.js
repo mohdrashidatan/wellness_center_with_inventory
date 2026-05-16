@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const path = require("path");
 const Router = require("./routes/index");
 const cookieParser = require("cookie-parser");
 
@@ -18,16 +19,22 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // Middleware for logging
 app.use(morgan("common"));
 
-// Routes
-app.get("/", (req, res) => {
-  res.send(`<h1>SERVER IS RUNNING! 🚀</h1>`);
-});
+// Serve built React frontend
+const clientDist = path.join(__dirname, "../../client/dist");
+app.use(express.static(clientDist));
+
+// API routes
 app.use("/api", Router);
+
+// Catch-all: serve React app for any non-API route (React Router support)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(clientDist, "index.html"));
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
