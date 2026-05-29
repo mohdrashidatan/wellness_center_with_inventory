@@ -41,6 +41,7 @@ import ProductDetailPage from "@/pages/ProductDetailPage";
 import ProductVariantsPage from "@/pages/ProductVariantsPage";
 import PackagesSetupPage from "@/pages/PackagesSetupPage";
 import SalesReportPage from "@/pages/SalesReportPage";
+import StockReportPage from "@/pages/StockReportPage";
 
 const privateRoutes = {
   path: "/",
@@ -95,7 +96,7 @@ const therapistRoutes = {
     { path: "setup/product-variants", element: <ProductVariantsPage /> },
     { path: "setup/packages", element: <PackagesSetupPage /> },
     { path: "sales/reports", element: <SalesReportPage /> },
-    { path: "stocks/reports", element: <ComingSoon title="Stock Reports" /> },
+    { path: "stocks/reports", element: <StockReportPage /> },
     { path: "stocks/incoming", element: <GrnReceivedPage /> },
     { path: "stocks/grn/new", element: <GrnEntryPage /> },
     { path: "stocks/transfers", element: <DoListPage /> },
