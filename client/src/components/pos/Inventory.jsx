@@ -102,7 +102,16 @@ export default function Inventory({ selectedData, setSelectedData, customerId })
       {!packageShow ? (
         <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 p-2'>
           {dataProduct.map((item, index) => (
-            <ItemCard key={index} name={item.name} price={item.unitprice} type={item.productcat} selectedData={selectedData} setSelectedData={setSelectedData} productid={item.productid} />
+            <ItemCard
+                key={index}
+                name={item.name}
+                price={item.unitprice}
+                type={item.productcat}
+                selectedData={selectedData}
+                setSelectedData={setSelectedData}
+                productid={item.productid}
+                isVariantEnabled={!!item.is_variant_enabled}
+              />
           ))}
         </div>
       ) : (

@@ -33,11 +33,15 @@ import UomPage from "@/pages/UomPage";
 import UsersPage from "@/pages/UsersPage";
 import GrnReceivedPage from "@/pages/GrnReceivedPage";
 import GrnEntryPage from "@/pages/GrnEntryPage";
+import DoListPage from "@/pages/DoListPage";
+import DoEntryPage from "@/pages/DoEntryPage";
+import DoEditPage from "@/pages/DoEditPage";
 import ProductsSetupPage from "@/pages/ProductsSetupPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import ProductVariantsPage from "@/pages/ProductVariantsPage";
 import PackagesSetupPage from "@/pages/PackagesSetupPage";
 import SalesReportPage from "@/pages/SalesReportPage";
+import StockReportPage from "@/pages/StockReportPage";
 
 const privateRoutes = {
   path: "/",
@@ -92,10 +96,12 @@ const therapistRoutes = {
     { path: "setup/product-variants", element: <ProductVariantsPage /> },
     { path: "setup/packages", element: <PackagesSetupPage /> },
     { path: "sales/reports", element: <SalesReportPage /> },
-    { path: "stocks/reports", element: <ComingSoon title="Stock Reports" /> },
+    { path: "stocks/reports", element: <StockReportPage /> },
     { path: "stocks/incoming", element: <GrnReceivedPage /> },
     { path: "stocks/grn/new", element: <GrnEntryPage /> },
-    { path: "stocks/transfers", element: <ComingSoon title="Stock Transfers" /> },
+    { path: "stocks/transfers", element: <DoListPage /> },
+    { path: "stocks/do/new", element: <DoEntryPage /> },
+    { path: "stocks/do/:id/edit", element: <DoEditPage /> },
     { path: "stocks/adjustments", element: <ComingSoon title="Stock Adjustments" /> },
   ],
 };

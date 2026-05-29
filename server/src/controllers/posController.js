@@ -1,4 +1,5 @@
 const posService = require("../services/posService");
+const { getSalesHeaders, getSalesDetails } = require("../models/posModel");
 
 const insertPosHd = async (req, res) => {
   try {
@@ -84,4 +85,26 @@ const getCusPosLine = async (req, res) => {
   }
 };
 
-module.exports = { insertPosHd, insertPosLine, getCusPosHd, getCusPosLine };
+const getSalesHeadersCtrl = async (req, res) => {
+  try {
+    const { search = "", dateFrom = "", dateTo = "", page = 1, limit = 20 } = req.query;
+    const data = await getSalesHeaders({ search, dateFrom, dateTo, page: Number(page), limit: Number(limit) });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch sales headers" });
+  }
+};
+
+const getSalesDetailsCtrl = async (req, res) => {
+  try {
+    const { search = "", dateFrom = "", dateTo = "", posid = "", page = 1, limit = 20 } = req.query;
+    const data = await getSalesDetails({ search, dateFrom, dateTo, posid, page: Number(page), limit: Number(limit) });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch sales details" });
+  }
+};
+
+module.exports = { insertPosHd, insertPosLine, getCusPosHd, getCusPosLine, getSalesHeadersCtrl, getSalesDetailsCtrl };

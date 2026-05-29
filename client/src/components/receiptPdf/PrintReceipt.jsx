@@ -1,124 +1,235 @@
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ScrollText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-
-export default function PrintReceipt({ selectedData, personData, discountShow }) {
+export default function PrintReceipt({ selectedData, personData, formWalkinData, discountShow, posSetup = {}, receiptId, receiptDate, paymentMethod }) {
   const totalPrice = selectedData.reduce((total, item) => total + item.subPrice * 1, 0).toFixed(2);
+
+  const fmtDate = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const fmtReceipt = (id) => id ? `RCP-${String(id).padStart(6, "0")}` : "—";
+
+  const customerName  = personData?.name  || formWalkinData?.walkinName  || "Walk-in";
+  const customerPhone = personData?.contact_no || formWalkinData?.walkinContact || "";
+  const customerEmail = personData?.email || formWalkinData?.walkinEmail || "";
+
+  const payLabel = paymentMethod
+    ? paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)
+    : "—";
+
   return (
     <>
-      <div id='printreceipt' className='h-full'>
-        <div className=' flex justify-between items-center bg-purple-500/50 p-2'>
-          <div className='flex items-center'>
-            <img src='/pwglogo.svg' alt='' className='w-20' />
-            <p>Prife Wellness Group</p>
+      <div id="printreceipt">
+
+        {/* ── Header ─────────────────────────────────────── */}
+        <div className="receipt-header">
+          <div className="header-left">
+            <img src="/tcpl-logo.png" alt="Logo" className="receipt-logo" />
+            <div className="coy-block">
+              <p className="coy-name">{posSetup.coyname || ""}</p>
+              {posSetup.addr1 && <p className="coy-addr">{posSetup.addr1}</p>}
+              {posSetup.addr2 && <p className="coy-addr">{posSetup.addr2}</p>}
+              {posSetup.addr3 && <p className="coy-addr">{posSetup.addr3}</p>}
+              {posSetup.coycontactnumber && <p className="coy-addr">{posSetup.coycontactnumber}</p>}
+              {posSetup.coyemail && <p className="coy-addr">{posSetup.coyemail}</p>}
+            </div>
           </div>
+          <div className="header-right">
+            <p className="receipt-title">Sales Receipt</p>
+            <p className="receipt-meta"><span className="meta-label">Date&nbsp;:</span> {fmtDate(receiptDate)}</p>
+            <p className="receipt-meta"><span className="meta-label">Receipt&nbsp;:</span> {fmtReceipt(receiptId)}</p>
+          </div>
+        </div>
+
+        {/* ── From / Sold To ──────────────────────────────── */}
+        <div className="receipt-parties">
+          <div className="party-block">
+            <p className="party-label">FROM</p>
+            <p>{posSetup.coyname || ""}</p>
+            {posSetup.addr1 && <p>{posSetup.addr1}</p>}
+            {posSetup.coycontactnumber && <p>{posSetup.coycontactnumber}</p>}
+          </div>
+          <div className="party-block">
+            <p className="party-label">SOLD TO</p>
+            <p>{customerName}</p>
+            {customerPhone && <p>{customerPhone}</p>}
+            {customerEmail && <p>{customerEmail}</p>}
+          </div>
+        </div>
+
+        {/* ── Items Table ──────────────────────────────────── */}
+        <table className="receipt-table">
+          <thead>
+            <tr>
+              <th className="col-desc" colSpan={3}>Description</th>
+              <th className="col-center">Qty</th>
+              <th className="col-center">Unit Price</th>
+              {discountShow && <th className="col-center">Subtotal</th>}
+              {discountShow && <th className="col-center">Discount</th>}
+              <th className="col-center">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selectedData.map((item, i) => (
+              <tr key={i}>
+                <td className="col-desc" colSpan={3}>
+                  {item.name
+                    ? item.name
+                    : item.packageCusFlag
+                    ? `${item.packagedesc} (Package Customer)`
+                    : `${item.packagedesc} (New Package)`}
+                  {item.variantLabel && (
+                    <span className="receipt-variant-label">{item.variantLabel}</span>
+                  )}
+                </td>
+                <td className="col-center">{item.amount}</td>
+                <td className="col-center">${discountShow ? item.price : item.subPrice}</td>
+                {discountShow && <td className="col-center">${(item.price * item.amount).toFixed(2)}</td>}
+                {discountShow && <td className="col-center">{item.discpercent ? `${item.discount}%` : `-$${(item.discount * 1).toFixed(2)}`}</td>}
+                <td className="col-center">${(item.subPrice * 1).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* ── Footer: Payment + Total ─────────────────────── */}
+        <div className="receipt-footer">
           <div>
-            <p>Payment Date : 9/8/2025</p>
-            <p>Receipt #323232</p>
+            <p className="footer-label">Payment Method</p>
+            <p>{payLabel}</p>
+          </div>
+          <div className="total-box">
+            <p>Total&nbsp;: <strong>${totalPrice}</strong></p>
           </div>
         </div>
 
-        <div className='px-5'>
-          <div className='mt-12 flex gap-40 space-x-4 items-center  p-2'>
-            <div className=''>
-              <p>From</p>
-              <p>Prife Wellness Group</p>
-              <p>Address Of Prife Wellness Group</p>
-              <p>(223)321311231231</p>
-            </div>
-            <div>
-              <p>Sold To</p>
-              <p>Arief Muhammad</p>
-              <p>Address Of Arief Muhammad</p>
-              <p>Customer@Gmail.com</p>
-            </div>
-          </div>
-
-          <div className='mt-14'>
-            <table className='w-full border border-gray-300 text-sm mb-6 shadow-sm rounded-lg'>
-              <thead>
-                <tr className='bg-gray-100 text-left'>
-                  <th className='border border-gray-300 px-3 py-2 font-medium w-[60%]' colSpan={3}>
-                    Description
-                  </th>
-                  <th className='border border-gray-300 px-3 py-2 font-medium w-[10%] text-center'>Quantity</th>
-                  <th className='border border-gray-300 px-3 py-2 font-medium w-[15%] text-center'>Unit Price</th>
-                  {discountShow && <th className='border border-gray-300 px-3 py-2 font-medium w-[15%] text-center'>Subtotal</th>}
-                  {discountShow && <th className='border border-gray-300 px-3 py-2 font-medium w-[15%] text-center'>Discount</th>}
-
-                  <th className='border border-gray-300 px-3 py-2 font-medium w-[15%] text-center'>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedData.map((item, index) => (
-                  <tr className='hover:bg-gray-50' key={index}>
-                    <td className='border border-gray-300 px-3 py-2' colSpan={3}>
-                      {item.name ? item.name : item.packageCusFlag ? `${item.packagedesc} (Package Customer) ` : `${item.packagedesc} (Package) `}
-                    </td>
-                    <td className='border border-gray-300 px-3 py-2 text-center'>{item.amount}</td>
-                    <td className='border border-gray-300 px-3 py-2 text-center'>${item.price}</td>
-                    {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>${(item.price * item.amount).toFixed(2)}</td>}
-                    {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>{item.discpercent ? `${item.discount}%` : `-$${(item.discount * 1).toFixed(2)}`}</td>}
-
-                    <td className='border border-gray-300 px-3 py-2 text-center'>${(item.amount * item.subPrice).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className='flex justify-between items-center mt-20 mb-30'>
-            <div className=''>
-              <p className='font-semibold'>Payment Menthod : </p>
-              <p> Credit Card</p>
-            </div>
-            <div className=' w-80 text-right'>
-              <p className='border-t-2  w-full'>Total : ${totalPrice}</p>
-            </div>
-          </div>
-        </div>
-        <div className='absolute bottom-0 left-0 bg-purple-500/50 text-center p-3 pb-10 w-full'>
-          <p className='text-xl font-semibold'>Thank You For Your Purchase</p>
-          <p>For question or any concern please contact</p>
-          <p>PWG@gmail.com, Bob(21)32132123</p>
+        {/* ── Thank You Bar ───────────────────────────────── */}
+        <div className="thank-you-bar">
+          <p className="thank-title">Thank You For Your Purchase</p>
+          {(posSetup.coyemail || posSetup.coycontactnumber) && (
+            <p className="thank-contact">
+              {[posSetup.coyemail, posSetup.coycontactnumber].filter(Boolean).join("  |  ")}
+            </p>
+          )}
         </div>
       </div>
 
       <style>{`
-  @media print {
-    body * {
-      visibility: hidden;
-    }
+        /* ── Screen: hide receipt (shown only on print) ── */
+        #printreceipt {
+          display: none;
+        }
 
-    #printreceipt, #printreceipt * {
-      visibility: visible;
-    }
+        @media print {
+          body * { visibility: hidden; }
+          #printreceipt, #printreceipt * { visibility: visible; }
+          #printreceipt {
+            display: block;
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%;
+            background: white;
+          }
+        }
 
-    #printreceipt {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      background: white;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-    }
+        @page {
+          size: A5 landscape;
+          margin: 8mm;
+        }
 
-    .min-h-screen {
-      min-height: auto !important;
-    }
+        /* ── Receipt Layout ── */
+        #printreceipt {
+          font-family: 'Segoe UI', Arial, sans-serif;
+          font-size: 9pt;
+          color: #222;
+          width: 100%;
+        }
 
-    .no-print {
-      display: none;
-    }
-  }
+        .receipt-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          background: #e8d5fb;
+          padding: 6px 10px;
+          border-radius: 4px 4px 0 0;
+        }
+        .header-left { display: flex; align-items: flex-start; gap: 8px; }
+        .receipt-logo { width: 44px; height: 44px; object-fit: contain; }
+        .coy-block { display: flex; flex-direction: column; gap: 1px; }
+        .coy-name { font-size: 10.5pt; font-weight: bold; margin: 0; }
+        .coy-addr { font-size: 7.5pt; color: #444; margin: 0; }
 
-  @page {
-    size: A3 landscape;
-    margin: 0;
-  }
-`}</style>
+        .header-right { text-align: right; }
+        .receipt-title {
+          font-size: 15pt;
+          font-weight: bold;
+          color: #4a0080;
+          margin: 0 0 4px 0;
+        }
+        .receipt-meta { font-size: 14pt; margin: 1px 0; }
+        .meta-label { font-weight: 600; }
+
+        .receipt-parties {
+          display: flex;
+          gap: 30px;
+          padding: 6px 10px;
+          border-bottom: 1px solid #ccc;
+          margin-bottom: 4px;
+        }
+        .party-block { flex: 1; font-size: 8.5pt; }
+        .party-block p { margin: 1px 0; }
+        .party-label { font-weight: bold; font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .receipt-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 8.5pt;
+          margin-bottom: 6px;
+        }
+        .receipt-table th {
+          background: #f3f3f3;
+          border: 1px solid #ccc;
+          padding: 3px 5px;
+          font-weight: 600;
+        }
+        .receipt-table td {
+          border: 1px solid #ddd;
+          padding: 3px 5px;
+        }
+        .col-desc { text-align: left; width: 50%; }
+        .col-center { text-align: center; }
+        .receipt-variant-label {
+          display: block;
+          font-size: 7pt;
+          color: #666;
+          margin-top: 1px;
+        }
+
+        .receipt-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          padding: 4px 10px;
+          font-size: 9pt;
+        }
+        .footer-label { font-weight: 600; margin-bottom: 2px; }
+        .total-box {
+          border-top: 2px solid #333;
+          padding-top: 3px;
+          text-align: right;
+          font-size: 10pt;
+        }
+
+        .thank-you-bar {
+          background: #e8d5fb;
+          text-align: center;
+          padding: 6px 10px;
+          border-radius: 0 0 4px 4px;
+          margin-top: 4px;
+        }
+        .thank-title { font-size: 10pt; font-weight: 600; margin: 0; }
+        .thank-contact { font-size: 8pt; color: #444; margin: 2px 0 0 0; }
+      `}</style>
     </>
   );
 }

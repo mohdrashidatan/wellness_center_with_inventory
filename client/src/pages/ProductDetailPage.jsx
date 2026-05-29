@@ -302,17 +302,32 @@ export default function ProductDetailPage() {
       {/* ── Transactions section ── */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">
-            Transaction History
-            <span className="ml-2 text-xs font-normal text-gray-400">({txns.length} record{txns.length !== 1 ? "s" : ""})</span>
-          </h2>
-          <button
-            onClick={() => exportCsv(txns, product.name)}
-            disabled={txns.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-100 disabled:opacity-40 transition">
-            <Download size={14} />
-            Export CSV
-          </button>
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">
+              Transaction History
+              <span className="ml-2 text-xs font-normal text-gray-400">({txns.length} record{txns.length !== 1 ? "s" : ""})</span>
+            </h2>
+          </div>
+          <div className="flex items-center gap-4">
+            {txns.length > 0 && (() => {
+              const net = txns.reduce((sum, r) => sum + Number(r.qty ?? 0), 0);
+              return (
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Net Balance</p>
+                  <p className={`text-2xl font-bold ${net < 0 ? "text-red-600" : net > 0 ? "text-green-700" : "text-gray-500"}`}>
+                    {net > 0 ? "+" : ""}{net}
+                  </p>
+                </div>
+              );
+            })()}
+            <button
+              onClick={() => exportCsv(txns, product.name)}
+              disabled={txns.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-100 disabled:opacity-40 transition">
+              <Download size={14} />
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -336,6 +351,7 @@ export default function ProductDetailPage() {
               <option value="">All</option>
               <option value="GRN">GRN</option>
               <option value="POS">POS</option>
+              <option value="DO">DO</option>
             </select>
           </div>
           <div>
@@ -389,13 +405,17 @@ export default function ProductDetailPage() {
                 <TableRow key={i} className="hover:bg-gray-50">
                   <TableCell className="text-xs whitespace-nowrap">{fmtDateTime(r.txn_date)}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.txn_type === "GRN" ? "bg-teal-100 text-teal-700" : "bg-orange-100 text-orange-700"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      r.txn_type === "GRN" ? "bg-teal-100 text-teal-700"
+                      : r.txn_type === "DO" ? "bg-red-100 text-red-700"
+                      : "bg-orange-100 text-orange-700"
+                    }`}>
                       {r.txn_type}
                     </span>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.ref_no}</TableCell>
                   <TableCell className="text-sm">{fmt(r.party)}</TableCell>
-                  <TableCell className="text-right">{r.qty}</TableCell>
+                  <TableCell className={`text-right font-medium ${r.qty < 0 ? "text-red-600" : ""}`}>{r.qty}</TableCell>
                   <TableCell>{fmt(r.uom)}</TableCell>
                   <TableCell className="text-right">{r.unit_price != null ? Number(r.unit_price).toFixed(2) : "—"}</TableCell>
                   <TableCell className="text-right">{r.total_price != null ? Number(r.total_price).toFixed(2) : "—"}</TableCell>

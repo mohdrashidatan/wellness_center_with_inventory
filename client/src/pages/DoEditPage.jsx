@@ -1,38 +1,40 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Trash2, Plus, CheckSquare, Square } from "lucide-react";
-import { grnService } from "@/services/grnService";
+import { Trash2, Plus } from "lucide-react";
+import { doService } from "@/services/doService";
 import { contactsService } from "@/services/contactsService";
 import toast from "react-hot-toast";
 import Modal from "@/shared/Modal";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
-const today = () => new Date().toISOString().split("T")[0];
+const toDateInput = (val) => {
+  if (!val) return "";
+  return val.split("T")[0];
+};
 
-const emptyLine = (consign = false) => ({
+const emptyLine = () => ({
   _key:         Math.random().toString(36).slice(2),
   productid:    "",
   product_name: "",
   product_desc: "",
   qty:          "",
   uom:          "",
-  consign,
   batch_no:     "",
   expiry_date:  "",
   remarks:      "",
 });
 
-/* ─── Lookup input (shared for supplier & item) ─────────────────── */
+/* ─── Lookup input ───────────────────────────────────────────────── */
 function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderOption, creatable, creatableLabel, dropWidthScale = 1 }) {
-  const [query, setQuery]       = useState(value || "");
-  const [results, setResults]   = useState([]);
-  const [open, setOpen]         = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [dropPos, setDropPos]   = useState({ top: 0, left: 0, width: 0 });
-  const timer                   = useRef(null);
-  const wrapRef                 = useRef(null);
+  const [query, setQuery]     = useState(value || "");
+  const [results, setResults] = useState([]);
+  const [open, setOpen]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const timer                 = useRef(null);
+  const wrapRef               = useRef(null);
 
   useEffect(() => { setQuery(value || ""); }, [value]);
 
@@ -44,7 +46,6 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Reposition the portal dropdown whenever it opens or the window scrolls/resizes
   useEffect(() => {
     if (!open || !wrapRef.current) return;
     const update = () => {
@@ -69,7 +70,8 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
     timer.current = setTimeout(async () => {
       setLoading(true);
       try { const r = await onSearch(v); setResults(r); setOpen(true); }
-      catch (err) { console.error("Lookup search error:", err); setOpen(true); } finally { setLoading(false); }
+      catch (err) { console.error("Lookup search error:", err); setOpen(true); }
+      finally { setLoading(false); }
     }, 280);
   };
 
@@ -78,12 +80,12 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
   const dropdown = open ? createPortal(
     <div
       style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width * dropWidthScale, zIndex: 9999 }}
-      className="bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto"
+      className="bg-white border border-orange-200 rounded-md shadow-lg max-h-52 overflow-y-auto"
     >
       {results.map((r) => (
         <div
-          key={r.productid || r.id || r.sku_id || r.contactid}
-          className="px-3 py-2 text-sm hover:bg-purple-50 cursor-pointer"
+          key={r.productid || r.id || r.contactid}
+          className="px-3 py-2 text-sm hover:bg-orange-50 cursor-pointer"
           onMouseDown={() => choose(r)}
         >
           {renderOption(r)}
@@ -94,7 +96,7 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
       )}
       {creatable && query.trim() && (
         <div
-          className="px-3 py-2 text-sm text-purple-600 font-medium hover:bg-purple-50 cursor-pointer border-t"
+          className="px-3 py-2 text-sm text-orange-600 font-medium hover:bg-orange-50 cursor-pointer border-t border-orange-100"
           onMouseDown={() => { onCreate(query.trim()); setOpen(false); setQuery(""); }}
         >
           + {creatableLabel || `Add "${query.trim()}"`}
@@ -110,7 +112,7 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
         value={query}
         onChange={handleChange}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+        className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
       />
       {loading && <span className="absolute right-3 top-2.5 text-xs text-gray-400">…</span>}
       {dropdown}
@@ -119,65 +121,76 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
 }
 
 /* ─── Main Component ─────────────────────────────────────────────── */
-export default function GrnEntryPage() {
-  const navigate = useNavigate();
+export default function DoEditPage() {
+  const { id }     = useParams();
+  const navigate   = useNavigate();
 
-  /* header state */
-  const [header, setHeader] = useState({
-    contactid:         "",
-    supplier_name:     "",
-    receiptdate:       today(),
-    delivery_order_no: "",
-    remarks:           "",
-  });
+  const [header, setHeader] = useState(null);
+  const [lines, setLines]   = useState([]);
+  const [loadError, setLoadError]               = useState(null);
+  const [newRecipientModal, setNewRecipientModal] = useState(false);
+  const [newRecipientName, setNewRecipientName]   = useState("");
+  const [saving, setSaving]                       = useState(false);
 
-  /* lines state */
-  const [lines, setLines] = useState([emptyLine()]);
+  /* ── Load existing DO ── */
+  useEffect(() => {
+    doService.getById(id)
+      .then(({ header: h, lines: ls }) => {
+        setHeader({
+          txn_type:          h.transtype || "Consign Sales",
+          contactid:         h.contactid || "",
+          recipient_name:    h.recipient_name || "",
+          transferdate:      toDateInput(h.transferdate),
+          delivery_order_no: h.delivery_order_no || "",
+          remarks:           h.remarks || "",
+        });
+        setLines(
+          ls.length > 0
+            ? ls.map((l) => ({
+                _key:         Math.random().toString(36).slice(2),
+                productid:    l.productid || "",
+                product_name: l.product_name || "",
+                product_desc: l.product_desc || "",
+                qty:          l.qty ?? "",
+                uom:          l.uom || "",
+                batch_no:     l.batch_no || "",
+                expiry_date:  toDateInput(l.expiry_date),
+                remarks:      l.remarks || "",
+              }))
+            : [emptyLine()]
+        );
+      })
+      .catch(() => setLoadError("Failed to load Delivery Order"));
+  }, [id]);
 
-  /* new supplier modal */
-  const [newSupplierModal, setNewSupplierModal] = useState(false);
-  const [newSupplierName, setNewSupplierName]   = useState("");
-  const [saving, setSaving] = useState(false);
-
-  /* ── header helpers ── */
   const setHdr = (field, val) => setHeader((p) => ({ ...p, [field]: val }));
 
-  /* ── supplier lookup ── */
-  const handleSupplierSelect = (c) => {
+  const handleRecipientSelect = (c) => {
     setHdr("contactid", c.contactid);
-    setHdr("supplier_name", c.display_name);
+    setHdr("recipient_name", c.display_name);
   };
 
-  const handleCreateSupplier = async (name) => {
-    setNewSupplierName(name);
-    setNewSupplierModal(true);
+  const handleCreateRecipient = (name) => {
+    setNewRecipientName(name);
+    setNewRecipientModal(true);
   };
 
-  const saveNewSupplier = async () => {
+  const saveNewRecipient = async () => {
     try {
-      const c = await contactsService.createSupplier({ display_name: newSupplierName });
+      const c = await contactsService.createSupplier({ display_name: newRecipientName });
       setHdr("contactid", c.contactid);
-      setHdr("supplier_name", c.display_name);
-      setNewSupplierModal(false);
-      toast.success(`Supplier "${c.display_name}" created`);
+      setHdr("recipient_name", c.display_name);
+      setNewRecipientModal(false);
+      toast.success(`Recipient "${c.display_name}" created`);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to create supplier");
+      toast.error(err?.response?.data?.message || "Failed to create recipient");
     }
   };
 
-  /* ── line helpers ── */
   const updateLine = (key, field, val) =>
     setLines((prev) => prev.map((l) => (l._key === key ? { ...l, [field]: val } : l)));
 
-  const setConsignFromIndex = (idx, val) =>
-    setLines((prev) =>
-      prev.map((l, i) => (i >= idx ? { ...l, consign: val } : l))
-    );
-
-  const addLine = () => {
-    const lastConsign = lines.length > 0 ? lines[lines.length - 1].consign : false;
-    setLines((prev) => [...prev, emptyLine(lastConsign)]);
-  };
+  const addLine = () => setLines((prev) => [...prev, emptyLine()]);
 
   const removeLine = (key) => setLines((prev) => prev.filter((l) => l._key !== key));
 
@@ -185,38 +198,32 @@ export default function GrnEntryPage() {
     setLines((prev) =>
       prev.map((l) =>
         l._key === key
-          ? {
-              ...l,
-              productid:    product.productid,
-              product_name: product.name,
-              product_desc: product.description || "",
-              uom:          product.base_uom_code || "",
-            }
+          ? { ...l, productid: product.productid, product_name: product.name, product_desc: product.description || "", uom: product.base_uom_code || "" }
           : l
       )
     );
   };
 
-  /* ── totals ── */
   const totalLines = lines.length;
   const totalQty   = lines.reduce((s, l) => s + (parseFloat(l.qty) || 0), 0);
 
-  /* ── save ── */
   const handleSave = async () => {
-    if (!header.receiptdate)        { toast.error("Received date is required"); return; }
-    if (!header.delivery_order_no.trim()) { toast.error("Delivery Order No. is required"); return; }
-    if (lines.length === 0)  { toast.error("Add at least one item line"); return; }
+    if (!header.txn_type)                  { toast.error("Transaction type is required"); return; }
+    if (!header.transferdate)              { toast.error("Transfer date is required"); return; }
+    if (!header.delivery_order_no.trim())  { toast.error("DO Reference No. is required"); return; }
+    if (lines.length === 0)               { toast.error("Add at least one item line"); return; }
     for (let i = 0; i < lines.length; i++) {
-      if (!lines[i].productid)   { toast.error(`Line ${i + 1}: Item is required`); return; }
+      if (!lines[i].productid)                             { toast.error(`Line ${i + 1}: Item is required`); return; }
       if (!lines[i].qty || parseFloat(lines[i].qty) <= 0) { toast.error(`Line ${i + 1}: Qty must be > 0`); return; }
     }
 
     setSaving(true);
     try {
-      await grnService.create({
+      await doService.update(id, {
         header: {
+          txn_type:          header.txn_type,
           contactid:         header.contactid || null,
-          receiptdate:       header.receiptdate,
+          transferdate:      header.transferdate,
           delivery_order_no: header.delivery_order_no,
           remarks:           header.remarks,
         },
@@ -224,41 +231,68 @@ export default function GrnEntryPage() {
           itemid:      l.productid,
           qty:         parseFloat(l.qty),
           uom:         l.uom,
-          consign:     l.consign ? 1 : 0,
           remarks:     l.remarks,
           batch_no:    l.batch_no,
           expiry_date: l.expiry_date || null,
         })),
       });
-      toast.success("GRN saved successfully");
-      navigate("/therapist/stocks/incoming");
+      toast.success("Delivery Order updated successfully");
+      navigate("/therapist/stocks/transfers");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to save GRN");
+      toast.error(err?.response?.data?.message || "Failed to update Delivery Order");
     } finally {
       setSaving(false);
     }
   };
 
-  /* ─────────────────────────────────────────────────────────── */
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-red-500">{loadError}</p>
+        <Button variant="outline" onClick={() => navigate("/therapist/stocks/transfers")}>Back to List</Button>
+      </div>
+    );
+  }
+
+  if (!header) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
+  }
+
   return (
     <div className="space-y-6 pb-10">
-      <h1 className="text-xl font-bold">New Goods Received Note</h1>
+      <h1 className="text-xl font-bold text-orange-700">
+        Edit Delivery Order — DO-{String(id).padStart(5, "0")}
+      </h1>
 
       {/* ══ Section 1 — Header ══════════════════════════════════ */}
-      <section className="bg-gray-50 border rounded-xl p-5 space-y-4">
-        <h2 className="font-semibold text-gray-700 text-base">Receipt Information</h2>
+      <section className="bg-orange-50 border border-orange-200 rounded-xl p-5 space-y-4">
+        <h2 className="font-semibold text-orange-700 text-base">Transfer Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Supplier lookup */}
+          {/* Transaction Type */}
+          <div>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Transaction Type *</label>
+            <select
+              value={header.txn_type}
+              onChange={(e) => setHdr("txn_type", e.target.value)}
+              className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+            >
+              <option value="Consign Sales">Consign Sales</option>
+              <option value="Consign Return">Consign Return</option>
+              <option value="Loan Out">Loan Out</option>
+            </select>
+          </div>
+
+          {/* Recipient lookup */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Supplier *</label>
-            {header.supplier_name ? (
+            <label className="block text-xs font-medium text-orange-700 mb-1">Recipient</label>
+            {header.recipient_name ? (
               <div className="flex items-center gap-2">
-                <span className="flex-1 text-sm font-medium text-gray-800 border border-gray-200 rounded-md px-3 py-2 bg-white truncate">
-                  {header.supplier_name}
+                <span className="flex-1 text-sm font-medium text-gray-800 border border-orange-200 rounded-md px-3 py-2 bg-white truncate">
+                  {header.recipient_name}
                 </span>
                 <button
-                  onClick={() => { setHdr("contactid", ""); setHdr("supplier_name", ""); }}
+                  onClick={() => { setHdr("contactid", ""); setHdr("recipient_name", ""); }}
                   className="text-xs text-red-400 hover:text-red-600"
                 >
                   ✕
@@ -266,12 +300,12 @@ export default function GrnEntryPage() {
               </div>
             ) : (
               <LookupInput
-                placeholder="Search supplier…"
+                placeholder="Search recipient…"
                 onSearch={contactsService.search}
-                onSelect={handleSupplierSelect}
+                onSelect={handleRecipientSelect}
                 creatable
-                creatableLabel="Create new supplier"
-                onCreate={handleCreateSupplier}
+                creatableLabel="Create new recipient"
+                onCreate={handleCreateRecipient}
                 renderOption={(c) => (
                   <div>
                     <span className="font-medium">{c.display_name}</span>
@@ -282,46 +316,46 @@ export default function GrnEntryPage() {
             )}
           </div>
 
-          {/* Date received */}
+          {/* Transfer date */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Date Received *</label>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Transfer Date *</label>
             <input
               type="date"
-              value={header.receiptdate}
-              onChange={(e) => setHdr("receiptdate", e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              value={header.transferdate}
+              onChange={(e) => setHdr("transferdate", e.target.value)}
+              className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
             />
           </div>
 
-          {/* DO number */}
+          {/* DO Reference No. */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Delivery Order No. *</label>
+            <label className="block text-xs font-medium text-orange-700 mb-1">DO Reference No. *</label>
             <input
               value={header.delivery_order_no}
               onChange={(e) => setHdr("delivery_order_no", e.target.value)}
               placeholder="e.g. DO-2025-001"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
             />
           </div>
 
           {/* Remarks */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Remarks</label>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Remarks</label>
             <input
               value={header.remarks}
               onChange={(e) => setHdr("remarks", e.target.value)}
               placeholder="Optional notes…"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
             />
           </div>
         </div>
       </section>
 
       {/* ══ Section 2 — Lines ══════════════════════════════════ */}
-      <section className="border rounded-xl overflow-hidden">
-        <div className="bg-gray-50 px-5 py-3 flex justify-between items-center border-b">
-          <h2 className="font-semibold text-gray-700 text-base">Received Items</h2>
-          <Button onClick={addLine} size="sm" className="bg-prime-color hover:bg-prime-color-hover flex gap-1">
+      <section className="border border-orange-200 rounded-xl overflow-hidden">
+        <div className="bg-orange-50 px-5 py-3 flex justify-between items-center border-b border-orange-200">
+          <h2 className="font-semibold text-orange-700 text-base">Items to Transfer</h2>
+          <Button onClick={addLine} size="sm" className="bg-orange-600 hover:bg-orange-700 flex gap-1">
             <Plus className="w-4 h-4" /> Add Line
           </Button>
         </div>
@@ -329,13 +363,12 @@ export default function GrnEntryPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+              <tr className="bg-orange-50 text-xs text-orange-700 uppercase tracking-wide border-b border-orange-200">
                 <th className="px-3 py-2 text-left w-8">#</th>
-                <th className="px-3 py-2 text-left w-36">Item Code *</th>
+                <th className="px-3 py-2 text-left w-36">Item *</th>
                 <th className="px-3 py-2 text-left">Description</th>
                 <th className="px-3 py-2 text-right w-20">Qty *</th>
                 <th className="px-3 py-2 text-left w-20">UOM</th>
-                <th className="px-3 py-2 text-center w-24">Consignment</th>
                 <th className="px-3 py-2 text-left w-28">Batch No.</th>
                 <th className="px-3 py-2 text-left w-32">Expiry Date</th>
                 <th className="px-3 py-2 text-left">Remarks</th>
@@ -344,19 +377,18 @@ export default function GrnEntryPage() {
             </thead>
             <tbody>
               {lines.map((ln, idx) => (
-                <tr key={ln._key} className="border-t hover:bg-gray-50">
-                  {/* # */}
+                <tr key={ln._key} className="border-t border-orange-100 hover:bg-orange-50">
                   <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
 
                   {/* Product lookup */}
                   <td className="px-3 py-2">
                     {ln.productid ? (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-purple-700 font-semibold truncate max-w-[120px]">{ln.product_name}</span>
+                        <span className="text-xs text-orange-700 font-semibold truncate max-w-[120px]">{ln.product_name}</span>
                         <button
                           onClick={() => setLines((prev) =>
                             prev.map((l) => l._key === ln._key
-                              ? { ...l, productid: "", product_name: "", product_desc: "" }
+                              ? { ...l, productid: "", product_name: "", product_desc: "", uom: "" }
                               : l
                             )
                           )}
@@ -365,8 +397,9 @@ export default function GrnEntryPage() {
                       </div>
                     ) : (
                       <LookupInput
+                        key={ln._key}
                         placeholder="Search product…"
-                        onSearch={grnService.searchProducts}
+                        onSearch={doService.searchProducts}
                         onSelect={(p) => handleProductSelect(ln._key, p)}
                         dropWidthScale={4}
                         renderOption={(p) => (
@@ -381,7 +414,7 @@ export default function GrnEntryPage() {
                     )}
                   </td>
 
-                  {/* Description (auto-filled, read-only) */}
+                  {/* Description (auto-filled) */}
                   <td className="px-3 py-2">
                     <input
                       value={ln.product_desc}
@@ -400,7 +433,7 @@ export default function GrnEntryPage() {
                       step="1"
                       value={ln.qty}
                       onChange={(e) => updateLine(ln._key, "qty", e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full border border-orange-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </td>
 
@@ -410,23 +443,8 @@ export default function GrnEntryPage() {
                       value={ln.uom}
                       onChange={(e) => updateLine(ln._key, "uom", e.target.value)}
                       placeholder="UOM"
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full border border-orange-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
-                  </td>
-
-                  {/* Consignment toggle */}
-                  <td className="px-3 py-2 text-center">
-                    <button
-                      onClick={() => {
-                        const newVal = !ln.consign;
-                        setConsignFromIndex(idx, newVal);
-                      }}
-                      title={ln.consign ? "Consignment — click to toggle" : "Not consignment — click to toggle"}
-                      className={`flex items-center gap-1 mx-auto text-xs font-medium px-2 py-1 rounded-full ${ln.consign ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-400"}`}
-                    >
-                      {ln.consign ? <CheckSquare className="w-3 h-3" /> : <Square className="w-3 h-3" />}
-                      {ln.consign ? "Consign" : "No"}
-                    </button>
                   </td>
 
                   {/* Batch No */}
@@ -435,7 +453,7 @@ export default function GrnEntryPage() {
                       value={ln.batch_no}
                       onChange={(e) => updateLine(ln._key, "batch_no", e.target.value)}
                       placeholder="Batch #"
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full border border-orange-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </td>
 
@@ -445,7 +463,7 @@ export default function GrnEntryPage() {
                       type="date"
                       value={ln.expiry_date}
                       onChange={(e) => updateLine(ln._key, "expiry_date", e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full border border-orange-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </td>
 
@@ -455,7 +473,7 @@ export default function GrnEntryPage() {
                       value={ln.remarks}
                       onChange={(e) => updateLine(ln._key, "remarks", e.target.value)}
                       placeholder="Comments…"
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full border border-orange-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </td>
 
@@ -477,8 +495,7 @@ export default function GrnEntryPage() {
       </section>
 
       {/* ══ Section 3 — Footer ══════════════════════════════════ */}
-      <section className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-gray-50 border rounded-xl px-5 py-4">
-        {/* Summary */}
+      <section className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-orange-50 border border-orange-200 rounded-xl px-5 py-4">
         <div className="flex gap-6 text-sm">
           <div>
             <span className="text-gray-500">Total Lines: </span>
@@ -490,42 +507,42 @@ export default function GrnEntryPage() {
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => navigate("/therapist/stocks/incoming")}
+            onClick={() => navigate("/therapist/stocks/transfers")}
             disabled={saving}
+            className="border-orange-300 text-orange-700 hover:bg-orange-50"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-prime-color hover:bg-prime-color-hover min-w-[100px]"
+            className="bg-orange-600 hover:bg-orange-700 min-w-[160px]"
           >
-            {saving ? "Saving…" : "Save GRN"}
+            {saving ? "Saving…" : "Update Delivery Order"}
           </Button>
         </div>
       </section>
 
-      {/* ══ New Supplier Modal ══════════════════════════════════ */}
-      {newSupplierModal && (
-        <Modal title="Create New Supplier" setIsOpen={setNewSupplierModal} small>
+      {/* ══ New Recipient Modal ══════════════════════════════════ */}
+      {newRecipientModal && (
+        <Modal title="Create New Recipient" setIsOpen={setNewRecipientModal} small>
           <div className="flex flex-col gap-3">
             <p className="text-sm text-gray-500">
-              This supplier will be saved as a <strong>Supplier</strong> contact.
+              This recipient will be saved as a contact.
             </p>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Supplier Name *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Recipient Name *</label>
               <input
-                value={newSupplierName}
-                onChange={(e) => setNewSupplierName(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                value={newRecipientName}
+                onChange={(e) => setNewRecipientName(e.target.value)}
+                className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
-            <Button onClick={saveNewSupplier} className="bg-prime-color hover:bg-prime-color-hover w-full">
-              Save Supplier
+            <Button onClick={saveNewRecipient} className="bg-orange-600 hover:bg-orange-700 w-full">
+              Save Recipient
             </Button>
           </div>
         </Modal>

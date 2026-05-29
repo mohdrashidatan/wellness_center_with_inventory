@@ -3,7 +3,7 @@ const pool = require("../config/db");
 const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, page, limit }) => {
   const offset = (page - 1) * limit;
 
-  const conditions = ["g.active = 1"];
+  const conditions = ["g.active = 1", "gd.active = 1"];
   const params = [];
 
   if (supplierName) {
@@ -12,9 +12,7 @@ const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, 
   }
 
   if (itemSearch) {
-    conditions.push(
-      "EXISTS (SELECT 1 FROM grndetails gd2 LEFT JOIN products p2 ON gd2.itemid = p2.productid WHERE gd2.grnid = g.grnid AND gd2.active = 1 AND (p2.name LIKE ? OR p2.description LIKE ?))"
-    );
+    conditions.push("(p.name LIKE ? OR p.description LIKE ?)");
     params.push(`%${itemSearch}%`, `%${itemSearch}%`);
   }
 
@@ -35,35 +33,39 @@ const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, 
   const where = conditions.join(" AND ");
 
   const baseQuery = `
-    FROM grnd g
-    LEFT JOIN contacts c ON g.contactid = c.contactid
+    FROM grndetails gd
+    JOIN grnhd g ON g.grnid = gd.grnid
+    LEFT JOIN contacts c ON c.contactid = g.contactid
+    LEFT JOIN products p ON p.productid = gd.itemid
     WHERE ${where}
   `;
 
   const [countRows] = await pool.query(
-    `SELECT COUNT(DISTINCT g.grnid) AS total ${baseQuery}`,
+    `SELECT COUNT(*) AS total, COALESCE(SUM(gd.qty), 0) AS total_qty ${baseQuery}`,
     params
   );
-  const total = countRows[0].total;
+  const { total, total_qty } = countRows[0];
 
   const [rows] = await pool.query(
-    `SELECT DISTINCT
+    `SELECT
         g.grnid,
         g.receiptdate,
-        g.remarks,
-        c.contactid,
-        c.display_name   AS supplier_name,
-        c.code           AS supplier_code,
-        c.phone          AS supplier_phone,
-        c.email          AS supplier_email,
-        c.contact_person AS supplier_contact_person
+        g.delivery_order_no,
+        c.display_name  AS supplier_name,
+        p.name          AS product_name,
+        p.description   AS product_desc,
+        gd.qty,
+        gd.uom,
+        gd.batch_no,
+        gd.expiry_date,
+        gd.remarks
      ${baseQuery}
-     ORDER BY g.receiptdate DESC
+     ORDER BY g.receiptdate DESC, g.grnid DESC, gd.grnlineid
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
 
-  return { total, rows };
+  return { total, total_qty, rows };
 };
 
 const getById = async (id) => {
@@ -84,7 +86,7 @@ const getById = async (id) => {
         c.billing_city,
         c.billing_postal_code,
         c.billing_country
-     FROM grnd g
+     FROM grnhd g
      LEFT JOIN contacts c ON g.contactid = c.contactid
      WHERE g.grnid = ? AND g.active = 1`,
     [id]
@@ -117,7 +119,7 @@ const create = async ({ contactid, receiptdate, delivery_order_no, remarks, ente
     await conn.beginTransaction();
 
     const [hResult] = await conn.query(
-      `INSERT INTO grnd (contactid, receiptdate, delivery_order_no, remarks, enteredby, entereddate, active)
+      `INSERT INTO grnhd (contactid, receiptdate, delivery_order_no, remarks, enteredby, entereddate, active)
        VALUES (?, ?, ?, ?, ?, NOW(), 1)`,
       [contactid || null, receiptdate, delivery_order_no || null, remarks || null, enteredby || null]
     );
