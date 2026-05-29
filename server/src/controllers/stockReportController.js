@@ -14,14 +14,25 @@ const getSummary = async (req, res, next) => {
   }
 };
 
+const getBalance = async (req, res, next) => {
+  try {
+    const { cutoffDate } = req.query;
+    const rows = await stockReportModel.getStockBalance({ cutoffDate });
+    res.json({ rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getMovements = async (req, res, next) => {
   try {
-    const { dateFrom, dateTo, movType, productSearch, page = 1, limit = 20 } = req.query;
+    const { dateFrom, dateTo, movType, productSearch, productId, page = 1, limit = 20 } = req.query;
     const result = await stockReportModel.getStockMovements({
       dateFrom,
       dateTo,
       movType,
       productSearch,
+      productId: productId ? parseInt(productId, 10) : null,
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),
     });
@@ -31,4 +42,4 @@ const getMovements = async (req, res, next) => {
   }
 };
 
-module.exports = { getSummary, getMovements };
+module.exports = { getSummary, getBalance, getMovements };

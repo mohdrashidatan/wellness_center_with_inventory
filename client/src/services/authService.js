@@ -4,6 +4,20 @@ import api from "@/utils/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+const readJsonResponse = async (response) => {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    const body = await response.text();
+    const preview = body.replace(/\s+/g, " ").trim().slice(0, 120);
+    throw new Error(
+      `API returned ${contentType || "non-JSON"} instead of JSON. ${preview || "No response body."}`
+    );
+  }
+
+  return response.json();
+};
+
 export const authService = {
   login: async (credentials) => {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -12,7 +26,7 @@ export const authService = {
       body: JSON.stringify(credentials),
     });
 
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(data.error?.message || data.message || "Login failed");
     }
