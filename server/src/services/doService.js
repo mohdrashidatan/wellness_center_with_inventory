@@ -47,4 +47,12 @@ const update = async (id, { header, lines }) => {
   return await doModel.getById(id);
 };
 
-module.exports = { getList, getById, create, update };
+const updateCollectedDate = async (id, datecollected) => {
+  await doModel.updateCollectedDate(id, datecollected);
+};
+
+const searchFieldValues = async (field, q) => {
+  return await doModel.searchFieldValues(field, q || "");
+};
+
+module.exports = { getList, getById, create, update, updateCollectedDate, searchFieldValues };

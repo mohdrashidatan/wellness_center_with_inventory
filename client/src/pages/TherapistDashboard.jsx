@@ -83,8 +83,13 @@ export default function TherapistDashboard() {
   };
 
   const handleSearch = (e) => {
-    const value = e.target.value;
-    const filtered = consentList.filter((item) => item.name.toLowerCase().includes(value.toLowerCase()) || item.email.toLowerCase().includes(value.toLowerCase()));
+    const value = e.target.value.toLowerCase();
+    const filtered = consentList.filter(
+      (item) =>
+        (item.name || "").toLowerCase().includes(value) ||
+        (item.email || "").toLowerCase().includes(value) ||
+        (item.username || "").toLowerCase().includes(value)
+    );
     setCurrentDataShow(filtered);
   };
 
@@ -111,12 +116,14 @@ export default function TherapistDashboard() {
         <TableHeader>
           <TableRow className='text-center'>
             <TableHead className=''>Name</TableHead>
-            <TableHead className=''>Gontact</TableHead>
+            <TableHead className=''>Username</TableHead>
+            <TableHead className=''>Contact</TableHead>
             <TableHead className=''>Gender</TableHead>
             <TableHead className=''>Email</TableHead>
+            <TableHead className=''>Delivery Method</TableHead>
             <TableHead className=''>Selected Device</TableHead>
-            <TableHead className=''>Emergancy Contact</TableHead>
-            <TableHead className=''>Emergancy Contact Name</TableHead>
+            <TableHead className=''>Emergency Contact</TableHead>
+            <TableHead className=''>Emergency Contact Name</TableHead>
             <TableHead className=''>Status</TableHead>
             <TableHead className=''></TableHead>
             <TableHead className=''></TableHead>
@@ -126,9 +133,11 @@ export default function TherapistDashboard() {
           {currentDataShow.map((item, index) => (
             <TableRow key={index} className='rounded-xl hover:bg-prime-color cursor-pointer '>
               <TableCell>{item.name}</TableCell>
+              <TableCell>{item.username || "—"}</TableCell>
               <TableCell>{item.contact_no}</TableCell>
               <TableCell>{item.gender == "Male" ? "M" : "F"}</TableCell>
               <TableCell>{item.email}</TableCell>
+              <TableCell>{item.deliverymethod || "—"}</TableCell>
               <TableCell>{item.device_used}</TableCell>
               <TableCell>{item.emergency_contact_name}</TableCell>
               <TableCell>{item.emergency_contact_no}</TableCell>

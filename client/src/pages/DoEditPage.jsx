@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
 import { doService } from "@/services/doService";
-import { contactsService } from "@/services/contactsService";
 import toast from "react-hot-toast";
 import Modal from "@/shared/Modal";
 
@@ -84,7 +83,7 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
     >
       {results.map((r) => (
         <div
-          key={r.productid || r.id || r.contactid}
+          key={r.productid || r.customerid || r.id}
           className="px-3 py-2 text-sm hover:bg-orange-50 cursor-pointer"
           onMouseDown={() => choose(r)}
         >
@@ -120,6 +119,73 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
   );
 }
 
+/* ─── Suggest input (free-text with previous-value dropdown) ──────── */
+function SuggestInput({ value, onChange, onSearch, placeholder }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen]               = useState(false);
+  const [dropPos, setDropPos]         = useState({ top: 0, left: 0, width: 0 });
+  const timer   = useRef(null);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !wrapRef.current) return;
+    const update = () => {
+      const r = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => { window.removeEventListener("scroll", update, true); window.removeEventListener("resize", update); };
+  }, [open]);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    onChange(v);
+    clearTimeout(timer.current);
+    if (!v.trim()) { setSuggestions([]); setOpen(false); return; }
+    timer.current = setTimeout(async () => {
+      try { const r = await onSearch(v); setSuggestions(r); setOpen(r.length > 0); } catch {}
+    }, 250);
+  };
+
+  const select = (val) => { onChange(val); setOpen(false); };
+
+  const dropdown = open ? createPortal(
+    <div
+      style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
+      className="bg-white border border-orange-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
+    >
+      {suggestions.map((s) => (
+        <div key={s} className="px-3 py-2 text-sm hover:bg-orange-50 cursor-pointer" onMouseDown={() => select(s)}>
+          {s}
+        </div>
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <input
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+      />
+      {dropdown}
+    </div>
+  );
+}
+
 /* ─── Main Component ─────────────────────────────────────────────── */
 export default function DoEditPage() {
   const { id }     = useParams();
@@ -137,12 +203,18 @@ export default function DoEditPage() {
     doService.getById(id)
       .then(({ header: h, lines: ls }) => {
         setHeader({
-          txn_type:          h.transtype || "Consign Sales",
-          contactid:         h.contactid || "",
-          recipient_name:    h.recipient_name || "",
-          transferdate:      toDateInput(h.transferdate),
-          delivery_order_no: h.delivery_order_no || "",
-          remarks:           h.remarks || "",
+          txn_type:           h.transtype || "Consign Sales",
+          contactid:          h.contactid || "",
+          recipient_name:     h.recipient_name     || "",
+          recipient_username: h.recipient_username || "",
+          ordermethod:        h.ordermethod  || "",
+          walletused:         h.walletused   || "",
+          stockist:           h.stockist     || "",
+          selfpickup:         !!h.selfpickup,
+          transferdate:       toDateInput(h.transferdate),
+          datecollected:      toDateInput(h.datecollected) || "",
+          delivery_order_no:  h.delivery_order_no || "",
+          remarks:            h.remarks || "",
         });
         setLines(
           ls.length > 0
@@ -166,8 +238,9 @@ export default function DoEditPage() {
   const setHdr = (field, val) => setHeader((p) => ({ ...p, [field]: val }));
 
   const handleRecipientSelect = (c) => {
-    setHdr("contactid", c.contactid);
-    setHdr("recipient_name", c.display_name);
+    setHdr("contactid",          c.customerid);
+    setHdr("recipient_name",     c.name);
+    setHdr("recipient_username", c.username || "");
   };
 
   const handleCreateRecipient = (name) => {
@@ -177,11 +250,11 @@ export default function DoEditPage() {
 
   const saveNewRecipient = async () => {
     try {
-      const c = await contactsService.createSupplier({ display_name: newRecipientName });
-      setHdr("contactid", c.contactid);
-      setHdr("recipient_name", c.display_name);
+      const c = await doService.createCustomer(newRecipientName);
+      setHdr("contactid", c.customerid);
+      setHdr("recipient_name", c.name);
       setNewRecipientModal(false);
-      toast.success(`Recipient "${c.display_name}" created`);
+      toast.success(`Recipient "${c.name}" created`);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to create recipient");
     }
@@ -222,8 +295,13 @@ export default function DoEditPage() {
       await doService.update(id, {
         header: {
           txn_type:          header.txn_type,
-          contactid:         header.contactid || null,
+          contactid:         header.contactid    || null,
+          ordermethod:       header.ordermethod  || null,
+          walletused:        header.walletused   || null,
+          stockist:          header.stockist     || null,
+          selfpickup:        header.selfpickup,
           transferdate:      header.transferdate,
+          datecollected:     header.datecollected || null,
           delivery_order_no: header.delivery_order_no,
           remarks:           header.remarks,
         },
@@ -288,11 +366,14 @@ export default function DoEditPage() {
             <label className="block text-xs font-medium text-orange-700 mb-1">Recipient</label>
             {header.recipient_name ? (
               <div className="flex items-center gap-2">
-                <span className="flex-1 text-sm font-medium text-gray-800 border border-orange-200 rounded-md px-3 py-2 bg-white truncate">
-                  {header.recipient_name}
-                </span>
+                <div className="flex-1 border border-orange-200 rounded-md px-3 py-2 bg-white">
+                  <p className="text-sm font-medium text-gray-800 truncate">{header.recipient_name}</p>
+                  {header.recipient_username && (
+                    <p className="text-xs text-gray-400">@{header.recipient_username}</p>
+                  )}
+                </div>
                 <button
-                  onClick={() => { setHdr("contactid", ""); setHdr("recipient_name", ""); }}
+                  onClick={() => { setHdr("contactid", ""); setHdr("recipient_name", ""); setHdr("recipient_username", ""); }}
                   className="text-xs text-red-400 hover:text-red-600"
                 >
                   ✕
@@ -301,15 +382,15 @@ export default function DoEditPage() {
             ) : (
               <LookupInput
                 placeholder="Search recipient…"
-                onSearch={contactsService.search}
+                onSearch={doService.searchCustomers}
                 onSelect={handleRecipientSelect}
                 creatable
                 creatableLabel="Create new recipient"
                 onCreate={handleCreateRecipient}
                 renderOption={(c) => (
                   <div>
-                    <span className="font-medium">{c.display_name}</span>
-                    {c.code && <span className="ml-2 text-gray-400 text-xs">{c.code}</span>}
+                    <span className="font-medium">{c.name}</span>
+                    {c.username && <span className="ml-2 text-xs text-gray-400">@{c.username}</span>}
                   </div>
                 )}
               />
@@ -327,6 +408,31 @@ export default function DoEditPage() {
             />
           </div>
 
+          {/* Self Pickup */}
+          <div className="flex items-center gap-2 pt-5">
+            <input
+              id="selfpickup"
+              type="checkbox"
+              checked={header.selfpickup}
+              onChange={(e) => setHdr("selfpickup", e.target.checked)}
+              className="w-4 h-4 accent-orange-600 cursor-pointer"
+            />
+            <label htmlFor="selfpickup" className="text-sm font-medium text-orange-700 cursor-pointer">
+              Self Pickup
+            </label>
+          </div>
+
+          {/* Date Collected */}
+          <div>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Date Collected</label>
+            <input
+              type="date"
+              value={header.datecollected}
+              onChange={(e) => setHdr("datecollected", e.target.value)}
+              className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+            />
+          </div>
+
           {/* DO Reference No. */}
           <div>
             <label className="block text-xs font-medium text-orange-700 mb-1">DO Reference No. *</label>
@@ -335,6 +441,39 @@ export default function DoEditPage() {
               onChange={(e) => setHdr("delivery_order_no", e.target.value)}
               placeholder="e.g. DO-2025-001"
               className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+            />
+          </div>
+
+          {/* Order Method */}
+          <div>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Order Method</label>
+            <SuggestInput
+              value={header.ordermethod}
+              onChange={(v) => setHdr("ordermethod", v)}
+              onSearch={(q) => doService.searchFieldValues("ordermethod", q)}
+              placeholder="e.g. Online, Walk-in…"
+            />
+          </div>
+
+          {/* Wallet Used */}
+          <div>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Wallet Used</label>
+            <SuggestInput
+              value={header.walletused}
+              onChange={(v) => setHdr("walletused", v)}
+              onSearch={(q) => doService.searchFieldValues("walletused", q)}
+              placeholder="e.g. PayNow, GrabPay…"
+            />
+          </div>
+
+          {/* Stockist */}
+          <div>
+            <label className="block text-xs font-medium text-orange-700 mb-1">Stockist</label>
+            <SuggestInput
+              value={header.stockist}
+              onChange={(v) => setHdr("stockist", v)}
+              onSearch={(q) => doService.searchFieldValues("stockist", q)}
+              placeholder="Stockist code / name…"
             />
           </div>
 
@@ -531,7 +670,7 @@ export default function DoEditPage() {
         <Modal title="Create New Recipient" setIsOpen={setNewRecipientModal} small>
           <div className="flex flex-col gap-3">
             <p className="text-sm text-gray-500">
-              This recipient will be saved as a contact.
+              This recipient will be added to the customer list.
             </p>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Recipient Name *</label>

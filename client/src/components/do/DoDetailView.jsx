@@ -8,10 +8,7 @@ const fmt = (val) => {
   return new Date(val).toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const addressLine = (h) => {
-  const parts = [h.billing_address1, h.billing_address2, h.billing_city, h.billing_postal_code, h.billing_country];
-  return parts.filter(Boolean).join(", ") || "—";
-};
+const addressLine = (h) => h.recipient_address || "—";
 
 export default function DoDetailView({ doId }) {
   const [data, setData]       = useState(null);
@@ -49,21 +46,27 @@ export default function DoDetailView({ doId }) {
             Delivery Order Information
           </h3>
           <Row label="DO No."         value={`DO-${String(h.doid).padStart(5, "0")}`} />
-          <Row label="Transfer Date"  value={fmt(h.transferdate)} />
-          <Row label="DO Reference"   value={h.delivery_order_no || "—"} />
-          <Row label="Remarks"        value={h.remarks || "—"} />
+          <Row label="Transfer Date"   value={fmt(h.transferdate)} />
+          <Row label="Self Pickup"     value={h.selfpickup ? "Yes" : "No"} />
+          <Row label="Date Collected"  value={h.datecollected ? fmt(h.datecollected) : "—"} />
+          <Row label="DO Reference"    value={h.delivery_order_no || "—"} />
+          <Row label="Order Method"    value={h.ordermethod || "—"} />
+          <Row label="Wallet Used"     value={h.walletused  || "—"} />
+          <Row label="Stockist"        value={h.stockist    || "—"} />
+          <Row label="Remarks"         value={h.remarks || "—"} />
         </div>
 
         <div className="bg-orange-50 rounded-xl p-4 space-y-2 text-sm border border-orange-100">
           <h3 className="font-semibold text-base text-orange-700 border-b border-orange-200 pb-1 mb-2">
             Recipient
           </h3>
-          <Row label="Name"           value={h.recipient_name    || "—"} bold />
-          <Row label="Code"           value={h.recipient_code    || "—"} />
-          <Row label="Contact Person" value={h.recipient_contact_person || "—"} />
-          <Row label="Phone"          value={h.recipient_phone   || "—"} />
-          <Row label="Email"          value={h.recipient_email   || "—"} />
-          <Row label="Address"        value={addressLine(h)} />
+          <Row label="Name"     value={h.recipient_name     || "—"} bold />
+          {h.recipient_username && (
+            <Row label="Username" value={`@${h.recipient_username}`} />
+          )}
+          <Row label="Phone"    value={h.recipient_phone || "—"} />
+          <Row label="Email"    value={h.recipient_email || "—"} />
+          <Row label="Address"  value={addressLine(h)} />
         </div>
       </div>
 

@@ -45,6 +45,24 @@ export const authService = {
     }
   },
 
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post(`${API_BASE_URL}/api/auth/forgot-password`, { email });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to send reset link");
+    }
+  },
+
+  resetPassword: async ({ token, password, confirmPassword }) => {
+    try {
+      const response = await api.post(`${API_BASE_URL}/api/auth/reset-password`, { token, password, confirmPassword });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || error.response?.data?.message || "Failed to reset password");
+    }
+  },
+
   getToken: () => Cookies.get("token"),
 
   setToken: (token) => {

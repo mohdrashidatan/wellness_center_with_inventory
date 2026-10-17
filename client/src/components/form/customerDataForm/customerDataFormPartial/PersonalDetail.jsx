@@ -12,6 +12,8 @@ export default function PersonalDetail({ handleChange, formData }) {
       <input type='email' placeholder='Email / 电邮' className='border rounded px-2 py-1' name='email' onChange={handleChange} value={formData.email} />
       <input type='text' placeholder='Zip Code / 邮政编码' className='border rounded px-2 py-1' name='postalcode' onChange={handleChange} value={formData.postalcode} />
       <input type='text' placeholder='Country / 国家' className='border rounded px-2 py-1' name='country' onChange={handleChange} value={formData.country} />
+      <input type='text' placeholder='Username' maxLength={15} className='border rounded px-2 py-1' name='username' onChange={handleChange} value={formData.username || ""} />
+      <input type='text' placeholder='Delivery Method' maxLength={20} className='border rounded px-2 py-1' name='deliverymethod' onChange={handleChange} value={formData.deliverymethod || ""} />
     </div>
   );
 }

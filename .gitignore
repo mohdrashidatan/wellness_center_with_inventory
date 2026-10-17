@@ -26,3 +26,13 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Local tooling config (contains DB credentials)
+.codex/
+.mcp.json
+
+# Build archives
+*.zip
+
+# One-off data backups from migrations
+server/migrations/backups/

@@ -29,6 +29,19 @@ export const doService = {
     return response.data;
   },
 
+  searchCustomers: async (q) => {
+    const response = await api.get(
+      `${API_BASE_URL}/api/do/search-customers?q=${encodeURIComponent(q)}`,
+      authHeader()
+    );
+    return response.data;
+  },
+
+  createCustomer: async (name) => {
+    const response = await api.post(`${API_BASE_URL}/api/do/customers`, { name }, authHeader());
+    return response.data;
+  },
+
   getById: async (id) => {
     const response = await api.get(`${API_BASE_URL}/api/do/${id}`, authHeader());
     return response.data;
@@ -36,6 +49,33 @@ export const doService = {
 
   update: async (id, payload) => {
     const response = await api.put(`${API_BASE_URL}/api/do/${id}`, payload, authHeader());
+    return response.data;
+  },
+
+  searchFieldValues: async (field, q) => {
+    const response = await api.get(
+      `${API_BASE_URL}/api/do/field-values?field=${encodeURIComponent(field)}&q=${encodeURIComponent(q)}`,
+      authHeader()
+    );
+    return response.data;
+  },
+
+  updateCollectedDate: async (id, datecollected) => {
+    const response = await api.patch(
+      `${API_BASE_URL}/api/do/${id}/collected`,
+      { datecollected: datecollected || null },
+      authHeader()
+    );
+    return response.data;
+  },
+
+  getTopCustomers: async () => {
+    const response = await api.get(`${API_BASE_URL}/api/do/stats/top-customers`, authHeader());
+    return response.data;
+  },
+
+  getTopProducts: async () => {
+    const response = await api.get(`${API_BASE_URL}/api/do/stats/top-products`, authHeader());
     return response.data;
   },
 };

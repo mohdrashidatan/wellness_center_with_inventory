@@ -5,7 +5,7 @@ import {
   TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Search, X, Plus } from "lucide-react";
+import { Eye, Pencil, Search, X, Plus, CalendarCheck } from "lucide-react";
 import Modal from "@/shared/Modal";
 import { doService } from "@/services/doService";
 import DoDetailView from "@/components/do/DoDetailView";
@@ -40,6 +40,8 @@ export default function DoListPage() {
   const [viewId, setViewId]           = useState(null);
   const [viewModal, setViewModal]     = useState(false);
   const [dateMode, setDateMode]       = useState("range");
+  const [collectPopup, setCollectPopup]   = useState({ open: false, doid: null, date: "" });
+  const [collectSaving, setCollectSaving] = useState(false);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -102,6 +104,29 @@ export default function DoListPage() {
   const openView = (id) => {
     setViewId(id);
     setViewModal(true);
+  };
+
+  const openCollect = (doid, current) => {
+    const dateVal = current ? current.split("T")[0] : "";
+    setCollectPopup({ open: true, doid, date: dateVal });
+  };
+
+  const handleSaveCollected = async () => {
+    setCollectSaving(true);
+    try {
+      await doService.updateCollectedDate(collectPopup.doid, collectPopup.date || null);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.doid === collectPopup.doid ? { ...r, datecollected: collectPopup.date || null } : r
+        )
+      );
+      setCollectPopup({ open: false, doid: null, date: "" });
+      toast.success("Date Collected saved");
+    } catch {
+      toast.error("Failed to save Date Collected");
+    } finally {
+      setCollectSaving(false);
+    }
   };
 
   const pageButtons = () => {
@@ -254,6 +279,8 @@ export default function DoListPage() {
                 <TableHead className="w-28">DO No.</TableHead>
                 <TableHead>Transfer Date</TableHead>
                 <TableHead className="w-32">Type</TableHead>
+                <TableHead className="w-24 text-center">Self Pickup</TableHead>
+                <TableHead className="w-36">Date Collected</TableHead>
                 <TableHead>DO Reference</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Item</TableHead>
@@ -269,14 +296,14 @@ export default function DoListPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={15} className="text-center text-gray-400 py-10">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={15} className="text-center text-gray-400 py-10">
                     No records found
                   </TableCell>
                 </TableRow>
@@ -299,6 +326,25 @@ export default function DoListPage() {
                     }`}>
                       {r.transtype || "—"}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {r.selfpickup ? (
+                      <span className="inline-block w-4 h-4 rounded-sm bg-orange-500 text-white text-xs leading-4 text-center">✓</span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm">{r.datecollected ? fmtDate(r.datecollected) : "—"}</span>
+                      <button
+                        onClick={() => openCollect(r.doid, r.datecollected)}
+                        className="p-0.5 rounded hover:text-orange-500 transition-colors"
+                        title="Set Date Collected"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell>{r.delivery_order_no || "—"}</TableCell>
                   <TableCell>{r.recipient_name || "—"}</TableCell>
@@ -390,6 +436,44 @@ export default function DoListPage() {
         <Modal title={`DO-${String(viewId).padStart(5, "0")} — Details`} setIsOpen={setViewModal}>
           <div className="max-h-[70vh] overflow-y-auto pr-1">
             <DoDetailView doId={viewId} />
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Date Collected Popup ── */}
+      {collectPopup.open && (
+        <Modal
+          title={`DO-${String(collectPopup.doid).padStart(5, "0")} — Date Collected`}
+          setIsOpen={(v) => !v && setCollectPopup({ open: false, doid: null, date: "" })}
+          small
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs font-medium text-orange-700 mb-1">Date Collected</label>
+              <input
+                type="date"
+                value={collectPopup.date}
+                onChange={(e) => setCollectPopup((p) => ({ ...p, date: e.target.value }))}
+                className="w-full border border-orange-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setCollectPopup({ open: false, doid: null, date: "" })}
+                disabled={collectSaving}
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveCollected}
+                disabled={collectSaving}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {collectSaving ? "Saving…" : "Save"}
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

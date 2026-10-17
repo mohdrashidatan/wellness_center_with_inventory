@@ -36,6 +36,8 @@ const CustomerRegistrationForm = () => {
     referred_other: "-",
     emergency_contact_name: "",
     emergency_contact_no: "",
+    username: "",
+    deliverymethod: "",
   });
 
   const handleChange = (e) => {

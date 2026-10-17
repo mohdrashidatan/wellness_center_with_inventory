@@ -16,6 +16,8 @@ export default function useInitializeCustomerForm(data, setForm) {
         postalcode: data[0].postalcode || "",
         referred_by: data[0].referred_by || "",
         referred_other: data[0].referred_other || "",
+        username: data[0].username || "",
+        deliverymethod: data[0].deliverymethod || "",
       }));
     }
   }, [data]);

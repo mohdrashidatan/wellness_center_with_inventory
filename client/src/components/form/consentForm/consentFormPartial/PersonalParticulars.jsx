@@ -32,6 +32,11 @@ export default function PersonalParticulars({ formData, formPersonalData, handle
           <input type='text' name='emergency_contact_no' value={formPersonalData.emergency_contact_no} onChange={handleChangePersonal} placeholder='Mobile No.' className='border rounded px-2 py-1' />
         </div>
       </div>
+      {/* Username & Delivery Method */}
+      <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
+        <input type='text' name='username' value={formPersonalData.username || ""} onChange={handleChangePersonal} placeholder='Username' maxLength={15} className='border rounded px-2 py-1' />
+        <input type='text' name='deliverymethod' value={formPersonalData.deliverymethod || ""} onChange={handleChangePersonal} placeholder='Delivery Method' maxLength={20} className='border rounded px-2 py-1' />
+      </div>
     </>
   );
 }
