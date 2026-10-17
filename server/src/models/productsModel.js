@@ -1,9 +1,10 @@
 const pool = require("../config/db");
 const getData = async () => {
   const [row] = await pool.query(
-    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
-            p.packageprice, p.description, p.active,
-            pm.is_variant_enabled, pm.is_stock_item, pm.is_serialized, pm.is_batch_tracked
+    `SELECT p.productid, p.itemcode, p.name, p.productcat, p.brand, p.subcat,
+            p.barcode, p.unitprice, p.baseprice,
+            p.packageprice, p.reorder_level, p.description, p.active,
+            pm.is_variant_enabled, pm.is_stock_item, pm.is_serialized, pm.is_batch_tracked, pm.serial_capture_at
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      WHERE p.active = 1`
@@ -52,15 +53,18 @@ const searchSku = async (q) => {
 
 const searchProducts = async (q) => {
   const [rows] = await pool.query(
-    `SELECT p.productid, p.name, p.description, u.code AS base_uom_code
+    `SELECT p.productid, p.itemcode, p.name, p.brand, p.subcat, p.barcode,
+            p.description, u.code AS base_uom_code,
+            pm.is_serialized, pm.serial_capture_at
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
      WHERE p.active = 1
-       AND (p.name LIKE ? OR p.description LIKE ?)
+       AND (p.name LIKE ? OR p.description LIKE ? OR p.itemcode LIKE ?
+            OR p.barcode LIKE ? OR p.brand LIKE ? OR p.subcat LIKE ?)
      ORDER BY p.name
      LIMIT 20`,
-    [`%${q}%`, `%${q}%`]
+    [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`]
   );
   return rows;
 };
@@ -68,24 +72,47 @@ const searchProducts = async (q) => {
 const getProductList = async ({ search = "", page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;
   const like = `%${search}%`;
-  const params = [like, like, like, limit, offset];
+  // itemcode / brand / subcat / barcode are all searchable alongside the name.
+  const searchWhere = `(p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?
+       OR p.itemcode LIKE ? OR p.brand LIKE ? OR p.subcat LIKE ? OR p.barcode LIKE ?)`;
+  const likes = [like, like, like, like, like, like, like];
 
   const [rows] = await pool.query(
-    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
-            p.packageprice, p.description, p.active,
+    `SELECT p.productid, p.itemcode, p.name, p.productcat, p.brand, p.subcat,
+            p.barcode, p.unitprice, p.baseprice,
+            p.packageprice, p.reorder_level, p.description, p.active,
             u.code AS base_uom_code, u.name AS base_uom_name,
-            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked,
-            COALESCE(grn.qty_in, 0) - COALESCE(pos.qty_out, 0) - COALESCE(doq.qty_out, 0) AS qty_on_hand
+            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked, pm.serial_capture_at,
+            COALESCE(grn.qty_in, 0) - COALESCE(pos.qty_out, 0)
+              - COALESCE(doq.qty_out, 0) + COALESCE(adj.qty_adj, 0) AS qty_on_hand
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
-     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_in  FROM grndetails GROUP BY itemid) grn ON grn.itemid = p.productid
-     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_out FROM poslines   GROUP BY itemid) pos ON pos.itemid = p.productid
-     LEFT JOIN (SELECT itemid, SUM(qty) AS qty_out FROM dodetails  GROUP BY itemid) doq ON doq.itemid = p.productid
-     WHERE (p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?)
+     LEFT JOIN (
+       SELECT gd.itemid, SUM(gd.qty) AS qty_in FROM grndetails gd
+       JOIN grnhd g ON g.grnid = gd.grnid
+       WHERE gd.active = 1 AND g.active = 1 GROUP BY gd.itemid
+     ) grn ON grn.itemid = p.productid
+     LEFT JOIN (
+       SELECT pl.itemid, SUM(pl.qty) AS qty_out FROM poslines pl
+       JOIN poshd ph ON ph.posid = pl.posid
+       WHERE pl.active = 1 AND ph.active = 1 GROUP BY pl.itemid
+     ) pos ON pos.itemid = p.productid
+     LEFT JOIN (
+       SELECT dd.itemid, SUM(dd.qty) AS qty_out FROM dodetails dd
+       JOIN dohd d ON d.doid = dd.doid
+       WHERE dd.active = 1 AND d.active = 1 GROUP BY dd.itemid
+     ) doq ON doq.itemid = p.productid
+     LEFT JOIN (
+       SELECT sl.itemid, SUM(sl.onhandactual - sl.onhandstk) AS qty_adj FROM stkadjlines sl
+       JOIN stkadjhd sh ON sh.stkadjhdid = sl.stkadjhdid
+       WHERE sl.active = 1 AND sh.active = 1 AND sl.onhandactual IS NOT NULL
+       GROUP BY sl.itemid
+     ) adj ON adj.itemid = p.productid
+     WHERE ${searchWhere}
      ORDER BY p.name
      LIMIT ? OFFSET ?`,
-    params
+    [...likes, limit, offset]
   );
 
   const [[{ total }]] = await pool.query(
@@ -93,8 +120,8 @@ const getProductList = async ({ search = "", page = 1, limit = 10 }) => {
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
-     WHERE (p.name LIKE ? OR p.productcat LIKE ? OR u.code LIKE ?)`,
-    [like, like, like]
+     WHERE ${searchWhere}`,
+    likes
   );
 
   return { rows, total };
@@ -102,11 +129,12 @@ const getProductList = async ({ search = "", page = 1, limit = 10 }) => {
 
 const getProductById = async (id) => {
   const [[row]] = await pool.query(
-    `SELECT p.productid, p.name, p.productcat, p.unitprice, p.baseprice,
-            p.packageprice, p.description, p.active,
+    `SELECT p.productid, p.itemcode, p.name, p.productcat, p.brand, p.subcat,
+            p.barcode, p.unitprice, p.baseprice,
+            p.packageprice, p.reorder_level, p.description, p.active,
             p.enteredby, p.entereddate, p.editedby, p.editeddate,
             u.code AS base_uom_code, u.name AS base_uom_name,
-            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked
+            pm.is_stock_item, pm.is_variant_enabled, pm.is_serialized, pm.is_batch_tracked, pm.serial_capture_at
      FROM products p
      LEFT JOIN product_master pm ON pm.productid = p.productid
      LEFT JOIN uom u ON u.uom_id = pm.base_uom_id
@@ -118,8 +146,9 @@ const getProductById = async (id) => {
 
 const updateProduct = async (id, data) => {
   const {
-    name, productcat, unitprice, baseprice, packageprice, description,
-    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked,
+    itemcode, name, productcat, brand, subcat, barcode,
+    unitprice, baseprice, packageprice, reorder_level, description,
+    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked, serial_capture_at,
   } = data;
 
   const conn = await pool.getConnection();
@@ -128,24 +157,29 @@ const updateProduct = async (id, data) => {
 
     await conn.query(
       `UPDATE products
-       SET name=?, productcat=?, unitprice=?, baseprice=?, packageprice=?,
+       SET itemcode=?, name=?, productcat=?, brand=?, subcat=?, barcode=?,
+           unitprice=?, baseprice=?, packageprice=?, reorder_level=?,
            description=?, editeddate=NOW()
        WHERE productid=?`,
-      [name, productcat, unitprice, baseprice, packageprice, description, id]
+      [itemcode || null, name, productcat, brand || null, subcat || null, barcode || null,
+       unitprice, baseprice, packageprice, reorder_level ?? 0, description, id]
     );
 
     // upsert product_master
     await conn.query(
-      `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked, serial_capture_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          base_uom_id=VALUES(base_uom_id),
          is_stock_item=VALUES(is_stock_item),
          is_variant_enabled=VALUES(is_variant_enabled),
          is_serialized=VALUES(is_serialized),
-         is_batch_tracked=VALUES(is_batch_tracked)`,
+         is_batch_tracked=VALUES(is_batch_tracked),
+         serial_capture_at=VALUES(serial_capture_at)`,
       [id, base_uom_id || null, is_stock_item ? 1 : 0, is_variant_enabled ? 1 : 0,
-       is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0]
+       is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0,
+       // only meaningful for a serialised product
+       is_serialized ? (serial_capture_at || "Receipt") : null]
     );
 
     await conn.commit();
@@ -170,10 +204,33 @@ const findByName = async (name, excludeId = null) => {
   return row || null;
 };
 
+// itemcode carries a UNIQUE index, so catch the clash before MySQL does and
+// report which product already owns the code.
+const findByItemcode = async (itemcode, excludeId = null) => {
+  if (!itemcode) return null;
+  const query = excludeId
+    ? `SELECT productid, name FROM products WHERE LOWER(itemcode) = LOWER(?) AND productid <> ?`
+    : `SELECT productid, name FROM products WHERE LOWER(itemcode) = LOWER(?)`;
+  const params = excludeId ? [itemcode, excludeId] : [itemcode];
+  const [[row]] = await pool.query(query, params);
+  return row || null;
+};
+
+// Distinct sub-categories in use, for form dropdowns and report filters.
+const getSubcats = async () => {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT subcat FROM products
+     WHERE subcat IS NOT NULL AND subcat <> '' AND active = 1
+     ORDER BY subcat`
+  );
+  return rows.map((r) => r.subcat);
+};
+
 const createProduct = async (data) => {
   const {
-    name, productcat, unitprice, baseprice, packageprice, description,
-    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked,
+    itemcode, name, productcat, brand, subcat, barcode,
+    unitprice, baseprice, packageprice, reorder_level, description,
+    base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked, serial_capture_at,
   } = data;
 
   const conn = await pool.getConnection();
@@ -181,18 +238,23 @@ const createProduct = async (data) => {
     await conn.beginTransaction();
 
     const [result] = await conn.query(
-      `INSERT INTO products (name, productcat, unitprice, baseprice, packageprice, description, active, entereddate)
-       VALUES (?, ?, ?, ?, ?, ?, 1, NOW())`,
-      [name, productcat || "Product", unitprice || null, baseprice || null, packageprice || null, description || null]
+      `INSERT INTO products (itemcode, name, productcat, brand, subcat, barcode,
+                             unitprice, baseprice, packageprice, reorder_level,
+                             description, active, entereddate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
+      [itemcode || null, name, productcat || "Product", brand || null, subcat || null,
+       barcode || null, unitprice || null, baseprice || null, packageprice || null,
+       reorder_level ?? 0, description || null]
     );
     const newId = result.insertId;
 
     if (base_uom_id) {
       await conn.query(
-        `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO product_master (productid, base_uom_id, is_stock_item, is_variant_enabled, is_serialized, is_batch_tracked, serial_capture_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [newId, base_uom_id, is_stock_item ? 1 : 0, is_variant_enabled ? 1 : 0,
-         is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0]
+         is_serialized ? 1 : 0, is_batch_tracked ? 1 : 0,
+         is_serialized ? (serial_capture_at || "Receipt") : null]
       );
     }
 
@@ -407,7 +469,7 @@ const deactivateVariantValue = async (valueId) => {
 
 module.exports = {
   getData, searchSku, searchProducts, getProductList, getProductById, updateProduct,
-  deactivateProduct, findByName, createProduct, getProductTransactions,
+  deactivateProduct, findByName, findByItemcode, getSubcats, createProduct, getProductTransactions,
   getProductSkus,
   getVariantsByProduct, createVariantOption, updateVariantOption, deactivateVariantOption,
   addVariantValue, updateVariantValue, deactivateVariantValue,

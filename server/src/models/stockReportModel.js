@@ -62,22 +62,28 @@ const getTopCustomersSold = async ({ dateFrom, dateTo } = {}) => {
   return rows;
 };
 
-// Stock balance per product up to cutoffDate
-const getStockBalance = async ({ cutoffDate } = {}) => {
+// Stock balance per product up to cutoffDate (includes stock adjustments)
+const getStockBalance = async ({ cutoffDate, subcat } = {}) => {
   const co = cutoffDate || new Date().toISOString().split("T")[0];
 
   const [rows] = await pool.query(
     `SELECT
        p.productid,
+       p.itemcode,
        p.name        AS product_name,
        p.description AS product_desc,
        p.productcat,
-       COALESCE(grn.total_in,   0) AS total_in,
-       COALESCE(do_out.total_out, 0) AS total_out,
-       COALESCE(pos_out.total_sold, 0) AS total_sold,
+       p.brand,
+       p.subcat,
+       p.reorder_level,
+       COALESCE(grn.total_in,      0) AS total_in,
+       COALESCE(do_out.total_out,  0) AS total_out,
+       COALESCE(pos_out.total_sold,0) AS total_sold,
+       COALESCE(adj.total_adj,     0) AS total_adj,
        COALESCE(grn.total_in, 0)
          - COALESCE(do_out.total_out, 0)
-         - COALESCE(pos_out.total_sold, 0) AS balance_qty
+         - COALESCE(pos_out.total_sold, 0)
+         + COALESCE(adj.total_adj, 0) AS balance_qty
      FROM products p
      LEFT JOIN (
        SELECT gd.itemid, SUM(gd.qty) AS total_in
@@ -100,15 +106,23 @@ const getStockBalance = async ({ cutoffDate } = {}) => {
        WHERE pl.active = 1 AND ph.active = 1 AND DATE(ph.transdate) <= ?
        GROUP BY pl.itemid
      ) pos_out ON pos_out.itemid = p.productid
-     WHERE p.active = 1
+     LEFT JOIN (
+       SELECT sl.itemid, SUM(sl.onhandactual - sl.onhandstk) AS total_adj
+       FROM stkadjlines sl
+       JOIN stkadjhd sh ON sh.stkadjhdid = sl.stkadjhdid
+       WHERE sl.active = 1 AND sh.active = 1 AND sl.onhandactual IS NOT NULL
+         AND DATE(sh.stkadjasatdate) <= ?
+       GROUP BY sl.itemid
+     ) adj ON adj.itemid = p.productid
+     WHERE p.active = 1 ${subcat ? "AND p.subcat = ?" : ""}
      ORDER BY p.name ASC`,
-    [co, co, co]
+    subcat ? [co, co, co, co, subcat] : [co, co, co, co]
   );
   return rows;
 };
 
 // Combined stock movements: POS Sales + DO Transfers + GRN Receipts
-const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, productId, page = 1, limit = 20 } = {}) => {
+const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, productId, subcat, page = 1, limit = 20 } = {}) => {
   const offset = (page - 1) * limit;
 
   const buildWhere = (conditions) => conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -120,6 +134,7 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
   if (dateTo)        { posConditions.push("DATE(ph.transdate) <= ?"); posParams.push(dateTo); }
   if (productSearch) { posConditions.push("(p.name LIKE ? OR p.description LIKE ?)"); posParams.push(`%${productSearch}%`, `%${productSearch}%`); }
   if (productId)     { posConditions.push("pl.itemid = ?"); posParams.push(productId); }
+  if (subcat)        { posConditions.push("p.subcat = ?"); posParams.push(subcat); }
 
   // DO Transfers
   const doConditions = ["dd.active = 1", "d.active = 1"];
@@ -128,6 +143,7 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
   if (dateTo)        { doConditions.push("DATE(d.transdate) <= ?"); doParams.push(dateTo); }
   if (productSearch) { doConditions.push("(p.name LIKE ? OR p.description LIKE ?)"); doParams.push(`%${productSearch}%`, `%${productSearch}%`); }
   if (productId)     { doConditions.push("dd.itemid = ?"); doParams.push(productId); }
+  if (subcat)        { doConditions.push("p.subcat = ?"); doParams.push(subcat); }
 
   // GRN Receipts
   const grnConditions = ["gd.active = 1", "g.active = 1"];
@@ -136,11 +152,22 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
   if (dateTo)        { grnConditions.push("DATE(g.receiptdate) <= ?"); grnParams.push(dateTo); }
   if (productSearch) { grnConditions.push("(p.name LIKE ? OR p.description LIKE ?)"); grnParams.push(`%${productSearch}%`, `%${productSearch}%`); }
   if (productId)     { grnConditions.push("gd.itemid = ?"); grnParams.push(productId); }
+  if (subcat)        { grnConditions.push("p.subcat = ?"); grnParams.push(subcat); }
+
+  // Stock Adjustments
+  const adjConditions = ["sl.active = 1", "sh.active = 1", "sl.onhandactual IS NOT NULL"];
+  const adjParams = [];
+  if (dateFrom)      { adjConditions.push("DATE(sh.stkadjasatdate) >= ?"); adjParams.push(dateFrom); }
+  if (dateTo)        { adjConditions.push("DATE(sh.stkadjasatdate) <= ?"); adjParams.push(dateTo); }
+  if (productSearch) { adjConditions.push("(p.name LIKE ? OR p.description LIKE ?)"); adjParams.push(`%${productSearch}%`, `%${productSearch}%`); }
+  if (productId)     { adjConditions.push("sl.itemid = ?"); adjParams.push(productId); }
+  if (subcat)        { adjConditions.push("p.subcat = ?"); adjParams.push(subcat); }
 
   const posSql = `
     SELECT
       ph.transdate AS mov_date,
       'POS Sale'   AS mov_type,
+      p.itemcode,
       p.name       AS product_name,
       pl.qty,
       CONCAT('POS-', ph.posid)                          AS reference,
@@ -156,21 +183,23 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
     SELECT
       d.transdate                                          AS mov_date,
       'Transfer Out'                                       AS mov_type,
+      p.itemcode,
       p.name                                               AS product_name,
       dd.qty,
       COALESCE(d.reference, CONCAT('DO-', d.doid))        AS reference,
-      ct.display_name                                      AS party_name,
+      ct.name                                              AS party_name,
       NULL                                                 AS amount
     FROM dodetails dd
     JOIN dohd d ON d.doid = dd.doid
-    LEFT JOIN products p  ON p.productid  = dd.itemid
-    LEFT JOIN contacts ct ON ct.contactid = d.contactid
+    LEFT JOIN products p   ON p.productid   = dd.itemid
+    LEFT JOIN customers ct ON ct.customerid = d.contactid
     ${buildWhere(doConditions)}`;
 
   const grnSql = `
     SELECT
       g.receiptdate                                                  AS mov_date,
       'GRN Receipt'                                                  AS mov_type,
+      p.itemcode,
       p.name                                                         AS product_name,
       gd.qty,
       COALESCE(g.delivery_order_no, CONCAT('GRN-', g.grnid))        AS reference,
@@ -182,6 +211,21 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
     LEFT JOIN contacts ct ON ct.contactid = g.contactid
     ${buildWhere(grnConditions)}`;
 
+  const adjSql = `
+    SELECT
+      sh.stkadjasatdate                                              AS mov_date,
+      'Stock Adjustment'                                             AS mov_type,
+      p.itemcode,
+      p.name                                                         AS product_name,
+      (sl.onhandactual - sl.onhandstk)                               AS qty,
+      COALESCE(sh.stkadjdescription, CONCAT('ADJ-', sh.stkadjhdid)) AS reference,
+      NULL                                                           AS party_name,
+      NULL                                                           AS amount
+    FROM stkadjlines sl
+    JOIN stkadjhd sh ON sh.stkadjhdid = sl.stkadjhdid
+    LEFT JOIN products p ON p.productid = sl.itemid
+    ${buildWhere(adjConditions)}`;
+
   let unionSql, unionParams;
   if (movType === "POS Sale") {
     unionSql = posSql; unionParams = posParams;
@@ -189,9 +233,11 @@ const getStockMovements = async ({ dateFrom, dateTo, movType, productSearch, pro
     unionSql = doSql; unionParams = doParams;
   } else if (movType === "GRN Receipt") {
     unionSql = grnSql; unionParams = grnParams;
+  } else if (movType === "Stock Adjustment") {
+    unionSql = adjSql; unionParams = adjParams;
   } else {
-    unionSql = `(${posSql}) UNION ALL (${doSql}) UNION ALL (${grnSql})`;
-    unionParams = [...posParams, ...doParams, ...grnParams];
+    unionSql = `(${posSql}) UNION ALL (${doSql}) UNION ALL (${grnSql}) UNION ALL (${adjSql})`;
+    unionParams = [...posParams, ...doParams, ...grnParams, ...adjParams];
   }
 
   const [[{ total }]] = await pool.query(

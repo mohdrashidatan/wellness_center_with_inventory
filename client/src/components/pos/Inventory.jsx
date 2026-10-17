@@ -111,6 +111,8 @@ export default function Inventory({ selectedData, setSelectedData, customerId })
                 setSelectedData={setSelectedData}
                 productid={item.productid}
                 isVariantEnabled={!!item.is_variant_enabled}
+                isSerialized={!!item.is_serialized}
+                serialCaptureAt={item.serial_capture_at}
               />
           ))}
         </div>

@@ -1,13 +1,14 @@
 import { CreditCard, ScrollText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import api from "@/utils/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { Input } from "@/components/ui/input";
 import { posService } from "@/services/posService";
+import SerialEntry from "@/components/serial/SerialEntry";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { packageService } from "@/services/packageService";
@@ -177,16 +178,41 @@ export default function Checkout({ selectedData, personData, formWalkinData, set
 
           <tbody>
             {selectedData.map((item, index) => (
-              <tr className='hover:bg-gray-50' key={index}>
-                <td className='border border-gray-300 px-3 py-2' colSpan={3}>
-                  {item.name ? item.name : item.packageCusFlag ? `${item.packagedesc} ( ${item.remainSessions - item.amount} Visit Remaining) ` : `${item.packagedesc} (New Package) `}
-                </td>
-                <td className='border border-gray-300 px-3 py-2 text-center'>{item.amount}</td>
-                <td className='border border-gray-300 px-3 py-2 text-center'>{discountShow ? `$${item.price}` : `$${item.subPrice}`}</td>
-                {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>${(item.price * item.amount).toFixed(2)}</td>}
-                {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>{item.discpercent ? `${item.discount}%` : `-$${(item.discount * 1).toFixed(2)}`}</td>}
-                <td className='border border-gray-300 px-3 py-2 text-center'>${(item.subPrice * 1).toFixed(2)}</td>
-              </tr>
+              <Fragment key={index}>
+                <tr className='hover:bg-gray-50'>
+                  <td className='border border-gray-300 px-3 py-2' colSpan={3}>
+                    {item.name ? item.name : item.packageCusFlag ? `${item.packagedesc} ( ${item.remainSessions - item.amount} Visit Remaining) ` : `${item.packagedesc} (New Package) `}
+                  </td>
+                  <td className='border border-gray-300 px-3 py-2 text-center'>{item.amount}</td>
+                  <td className='border border-gray-300 px-3 py-2 text-center'>{discountShow ? `$${item.price}` : `$${item.subPrice}`}</td>
+                  {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>${(item.price * item.amount).toFixed(2)}</td>}
+                  {discountShow && <td className='border border-gray-300 px-3 py-2 text-center'>{item.discpercent ? `${item.discount}%` : `-$${(item.discount * 1).toFixed(2)}`}</td>}
+                  <td className='border border-gray-300 px-3 py-2 text-center'>${(item.subPrice * 1).toFixed(2)}</td>
+                </tr>
+
+                {/* Stock out: capture the serial(s) leaving with this line. */}
+                {item.isSerialized && !saved && (
+                  <tr className='bg-gray-50/60'>
+                    <td className='border border-gray-300 px-3 py-2' colSpan={discountShow ? 8 : 6}>
+                      <p className='text-xs text-gray-500 mb-1'>
+                        Serial number{item.amount === 1 ? "" : "s"} for <span className='font-medium'>{item.name}</span>
+                      </p>
+                      <SerialEntry
+                        mode='out'
+                        productId={item.id}
+                        qty={item.amount}
+                        captureAt={item.serialCaptureAt}
+                        value={item.serials || []}
+                        onChange={(next) =>
+                          setSelectedData((prev) =>
+                            prev.map((it, i) => (i === index ? { ...it, serials: next } : it))
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
           <tfoot>

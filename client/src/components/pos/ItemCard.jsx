@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import VariantPickerModal from "@/components/pos/VariantPickerModal";
 
-export default function ItemCard({ name, price, type, selectedData, setSelectedData, productid, isVariantEnabled }) {
+export default function ItemCard({ name, price, type, selectedData, setSelectedData, productid, isVariantEnabled, isSerialized, serialCaptureAt }) {
   const [showPicker, setShowPicker] = useState(false);
 
   const addDirectly = () => {
@@ -15,7 +15,12 @@ export default function ItemCard({ name, price, type, selectedData, setSelectedD
             : item
         );
       }
-      return [...prev, { id: productid, name, price, type, amount: 1, subPrice: price, discount: 0, discpercent: 0 }];
+      // isSerialized / serialCaptureAt ride along so Checkout knows to ask for serials.
+      return [...prev, {
+        id: productid, name, price, type, amount: 1, subPrice: price,
+        discount: 0, discpercent: 0,
+        isSerialized: !!isSerialized, serialCaptureAt: serialCaptureAt || null, serials: [],
+      }];
     });
   };
 
@@ -28,7 +33,7 @@ export default function ItemCard({ name, price, type, selectedData, setSelectedD
           i.id === item.id ? { ...i, amount: newAmt, subPrice: (i.price * newAmt).toFixed(2) } : i
         );
       }
-      return [...prev, item];
+      return [...prev, { ...item, isSerialized: !!isSerialized, serialCaptureAt: serialCaptureAt || null, serials: [] }];
     });
   };
 

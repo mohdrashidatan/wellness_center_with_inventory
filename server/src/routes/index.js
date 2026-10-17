@@ -17,6 +17,8 @@ const doRoute = require("./doRoute");
 const contactsRoute = require("./contactsRoute");
 const possetupRoute = require("./possetupRoute");
 const stockReportRoute = require("./stockReportRoute");
+const stockAdjRoute = require("./stockAdjRoute");
+const serialRoute = require("./serialRoute");
 
 const Router = express.Router();
 
@@ -39,5 +41,7 @@ Router.use("/do", doRoute);
 Router.use("/contacts", contactsRoute);
 Router.use("/possetup", possetupRoute);
 Router.use("/stock-report", stockReportRoute);
+Router.use("/stock-adj",    stockAdjRoute);
+Router.use("/serial",       serialRoute);
 
 module.exports = Router;

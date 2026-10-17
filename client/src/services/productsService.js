@@ -32,6 +32,19 @@ export const productsService = {
     });
     return response.data;
   },
+  // Distinct sub-categories in use — feeds form suggestions and report filters.
+  getSubcats: async () => {
+    const token = authService.getToken();
+    try {
+      const response = await api.get(`${API_BASE_URL}/api/products/subcats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching sub-categories", error);
+      return [];
+    }
+  },
   updateProduct: async (id, data) => {
     const token = authService.getToken();
     const response = await api.put(`${API_BASE_URL}/api/products/${id}`, data, {

@@ -9,6 +9,8 @@ const ComingSoon = ({ title }) => (
 import { NotFoundPage } from "../components/ErrorPage";
 import { PublicRoute } from "@/components/PublicRoute";
 import LoginPage from "@/pages/LoginPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Layout from "@/components/Layout";
 import StepsLayout from "@/components/StepsLayout";
 import DashboardPage from "@/pages/DashboardPage";
@@ -42,6 +44,9 @@ import ProductVariantsPage from "@/pages/ProductVariantsPage";
 import PackagesSetupPage from "@/pages/PackagesSetupPage";
 import SalesReportPage from "@/pages/SalesReportPage";
 import StockReportPage from "@/pages/StockReportPage";
+import StockAdjPage from "@/pages/StockAdjPage";
+import SerialRegisterPage from "@/pages/SerialRegisterPage";
+import CustomerListPage from "@/pages/CustomerListPage";
 
 const privateRoutes = {
   path: "/",
@@ -102,7 +107,9 @@ const therapistRoutes = {
     { path: "stocks/transfers", element: <DoListPage /> },
     { path: "stocks/do/new", element: <DoEntryPage /> },
     { path: "stocks/do/:id/edit", element: <DoEditPage /> },
-    { path: "stocks/adjustments", element: <ComingSoon title="Stock Adjustments" /> },
+    { path: "stocks/adjustments", element: <StockAdjPage /> },
+    { path: "stocks/serials", element: <SerialRegisterPage /> },
+    { path: "setup/customers", element: <CustomerListPage /> },
   ],
 };
 
@@ -128,6 +135,22 @@ const publicRoutes = [
     element: (
       <PublicRoute>
         <Logout />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/forgot-password",
+    element: (
+      <PublicRoute>
+        <ForgotPasswordPage />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/reset-password/:token",
+    element: (
+      <PublicRoute>
+        <ResetPasswordPage />
       </PublicRoute>
     ),
   },

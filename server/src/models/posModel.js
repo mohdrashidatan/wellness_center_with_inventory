@@ -10,9 +10,8 @@ const addPosHd = async (data, userId) => {
 };
 
 const addPosLine = async (idPosHd, item, userId, itemId, packagecheck) => {
-  const { name, price, amount, type, discount, discpercent, subPrice } = item;
+  const { price, amount, type, discount, discpercent, subPrice } = item;
 
-  console.log("item", item);
   const query = "INSERT INTO poslines (posid, itemid, productcat,qty, unit_price, total_price,disc,discpercent, package,oriprice, enteredby, entereddate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
   const [result] = await pool.query(query, [idPosHd, itemId, type || "Package", amount, price, subPrice, discount, discpercent, packagecheck, price * amount, userId, new Date()]);
   return result.insertId;

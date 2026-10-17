@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import api from "@/utils/api";
 import { authService } from "@/services/authService";
+import { productsService } from "@/services/productsService";
 import toast from "react-hot-toast";
 import { ShoppingCart, ArrowRightLeft, Users, TrendingUp, Package, ChevronRight, Download, BarChart2, RefreshCw } from "lucide-react";
 
@@ -110,9 +111,10 @@ function Pagination({ page, totalPages, onPage }) {
 }
 
 const MOV_BADGE = {
-  "POS Sale":     "bg-blue-100 text-blue-700",
-  "Transfer Out": "bg-orange-100 text-orange-700",
-  "GRN Receipt":  "bg-green-100 text-green-700",
+  "POS Sale":        "bg-blue-100 text-blue-700",
+  "Transfer Out":    "bg-orange-100 text-orange-700",
+  "GRN Receipt":     "bg-green-100 text-green-700",
+  "Stock Adjustment":"bg-purple-100 text-purple-700",
 };
 
 // ─── Stock Movements Panel ────────────────────────────────────────────────────
@@ -181,6 +183,7 @@ function MovementsPanel({ initialMovType, initialProductId, initialProductName, 
           <option value="POS Sale">POS Sale</option>
           <option value="Transfer Out">Transfer Out</option>
           <option value="GRN Receipt">GRN Receipt</option>
+          <option value="Stock Adjustment">Stock Adjustment</option>
         </select>
         <div className="flex items-center gap-1">
           <label className="text-xs text-gray-500">From</label>
@@ -246,13 +249,16 @@ function MovementsPanel({ initialMovType, initialProductId, initialProductName, 
 function StockBalanceSection({ onDrillDown }) {
   const [rows, setRows]           = useState([]);
   const [cutoffDate, setCutoffDate] = useState(todayISO());
+  const [subcat, setSubcat]       = useState("");
+  const [subcats, setSubcats]     = useState([]);
   const [loading, setLoading]     = useState(false);
 
-  const fetchBalance = useCallback(async (co) => {
+  const fetchBalance = useCallback(async (co, sc = "") => {
     setLoading(true);
     try {
       const token = authService.getToken();
       const params = new URLSearchParams({ cutoffDate: co });
+      if (sc) params.set("subcat", sc);
       const res = await api.get(`${API_BASE_URL}/api/stock-report/balance?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -265,15 +271,16 @@ function StockBalanceSection({ onDrillDown }) {
   }, []);
 
   useEffect(() => { fetchBalance(todayISO()); }, []);
+  useEffect(() => { productsService.getSubcats().then(setSubcats).catch(() => {}); }, []);
 
-  const handleApply = () => fetchBalance(cutoffDate);
+  const handleApply = () => fetchBalance(cutoffDate, subcat);
 
   const handleExport = () => {
     if (!rows.length) return;
-    const headers = ["Product", "Category", "Total In (GRN)", "Total Out (DO)", "Total Sold (POS)", "Balance Qty"];
+    const headers = ["Item Code", "Product", "Category", "Sub-category", "Total In (GRN)", "Total Out (DO)", "Total Sold (POS)", "Adjustments", "Balance Qty"];
     const csvRows = rows.map((r) => [
-      fmt(r.product_name), fmt(r.productcat),
-      r.total_in, r.total_out, r.total_sold, r.balance_qty,
+      fmt(r.itemcode), fmt(r.product_name), fmt(r.productcat), fmt(r.subcat),
+      r.total_in, r.total_out, r.total_sold, r.total_adj, r.balance_qty,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
     const csv = [headers.join(","), ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -303,6 +310,10 @@ function StockBalanceSection({ onDrillDown }) {
             <input type="date" className={inputCls} value={cutoffDate}
               onChange={(e) => setCutoffDate(e.target.value)} />
           </div>
+          <select className={inputCls} value={subcat} onChange={(e) => setSubcat(e.target.value)}>
+            <option value="">All sub-categories</option>
+            {subcats.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           <button onClick={handleApply}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-teal-600 text-white text-sm hover:bg-teal-700 transition">
             <RefreshCw size={13} /> Recalculate
@@ -338,25 +349,30 @@ function StockBalanceSection({ onDrillDown }) {
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="w-10">#</TableHead>
+              <TableHead className="w-28">Item Code</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Sub-category</TableHead>
               <TableHead className="text-right text-green-700">In (GRN)</TableHead>
               <TableHead className="text-right text-orange-700">Out (DO)</TableHead>
               <TableHead className="text-right text-blue-700">Sold (POS)</TableHead>
+              <TableHead className="text-right text-purple-700">Adj</TableHead>
               <TableHead className="text-right font-semibold">Balance Qty</TableHead>
               <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-10 text-gray-400">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-10 text-gray-400">Loading…</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-10 text-gray-400">No stock data found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-10 text-gray-400">No stock data found.</TableCell></TableRow>
             ) : rows.map((r, idx) => {
               const bal = fmtNum(r.balance_qty);
+              const adj = fmtNum(r.total_adj);
               return (
                 <TableRow key={r.productid} className="hover:bg-teal-50 transition-colors">
                   <TableCell className="text-gray-400 text-xs">{idx + 1}</TableCell>
+                  <TableCell className="font-mono text-xs text-gray-600">{fmt(r.itemcode)}</TableCell>
                   <TableCell className="font-medium">{fmt(r.product_name)}</TableCell>
                   <TableCell>
                     {r.productcat && (
@@ -365,9 +381,19 @@ function StockBalanceSection({ onDrillDown }) {
                       }`}>{r.productcat}</span>
                     )}
                   </TableCell>
+                  <TableCell className="text-xs text-gray-500">{fmt(r.subcat)}</TableCell>
                   <TableCell className="text-right text-green-700">{fmtNum(r.total_in).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-orange-700">{fmtNum(r.total_out).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-blue-700">{fmtNum(r.total_sold).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    {adj !== 0 ? (
+                      <span className={`font-medium text-sm ${adj > 0 ? "text-purple-600" : "text-red-500"}`}>
+                        {adj > 0 ? "+" : ""}{adj.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <span className={`font-bold text-sm ${bal > 0 ? "text-teal-700" : bal < 0 ? "text-red-600" : "text-gray-400"}`}>
                       {bal.toLocaleString()}

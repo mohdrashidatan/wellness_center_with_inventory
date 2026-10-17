@@ -16,8 +16,8 @@ const getSummary = async (req, res, next) => {
 
 const getBalance = async (req, res, next) => {
   try {
-    const { cutoffDate } = req.query;
-    const rows = await stockReportModel.getStockBalance({ cutoffDate });
+    const { cutoffDate, subcat } = req.query;
+    const rows = await stockReportModel.getStockBalance({ cutoffDate, subcat });
     res.json({ rows });
   } catch (err) {
     next(err);
@@ -26,12 +26,13 @@ const getBalance = async (req, res, next) => {
 
 const getMovements = async (req, res, next) => {
   try {
-    const { dateFrom, dateTo, movType, productSearch, productId, page = 1, limit = 20 } = req.query;
+    const { dateFrom, dateTo, movType, productSearch, productId, subcat, page = 1, limit = 20 } = req.query;
     const result = await stockReportModel.getStockMovements({
       dateFrom,
       dateTo,
       movType,
       productSearch,
+      subcat,
       productId: productId ? parseInt(productId, 10) : null,
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),

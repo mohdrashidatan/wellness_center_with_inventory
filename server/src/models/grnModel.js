@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const serialModel = require("./serialModel");
 
 const getList = async ({ supplierName, itemSearch, dateFrom, dateTo, dateExact, page, limit }) => {
   const offset = (page - 1) * limit;
@@ -126,7 +127,7 @@ const create = async ({ contactid, receiptdate, delivery_order_no, remarks, ente
     const grnid = hResult.insertId;
 
     for (const ln of lines) {
-      await conn.query(
+      const [lResult] = await conn.query(
         `INSERT INTO grndetails (grnid, itemid, qty, uom, consign, remarks, batch_no, expiry_date, enteredby, entereddate, active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)`,
         [
@@ -141,6 +142,19 @@ const create = async ({ contactid, receiptdate, delivery_order_no, remarks, ente
           enteredby || null,
         ]
       );
+
+      // Serials are optional on stock in — an empty list leaves behaviour unchanged.
+      if (ln.serials && ln.serials.length > 0) {
+        await serialModel.receiveOnGrnLine(
+          {
+            productid: ln.itemid,
+            grnlineid: lResult.insertId,
+            serials: ln.serials,
+            enteredby,
+          },
+          conn
+        );
+      }
     }
 
     await conn.commit();
