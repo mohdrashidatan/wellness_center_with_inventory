@@ -48,7 +48,38 @@ const registrationSchema = z
     path: ["confirmPassword"],
   });
 
+const forgotPasswordSchema = z.object({
+  email: z
+    .string({ required_error: "Email is required" })
+    .trim()
+    .toLowerCase()
+    .email("Invalid email format")
+    .min(1, "Email is required")
+    .max(255, "Email is too long"),
+});
+
+const resetPasswordSchema = z
+  .object({
+    token: z
+      .string({ required_error: "Reset token is required" })
+      .trim()
+      .min(1, "Reset token is required"),
+    password: z
+      .string({ required_error: "Password is required" })
+      .min(6, "Password must be at least 6 characters long")
+      .max(128, "Password is too long"),
+    confirmPassword: z
+      .string({ required_error: "Confirm Password is required" })
+      .min(1, "Confirm Password is required"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords must match",
+    path: ["confirmPassword"],
+  });
+
 module.exports = {
   loginSchema,
   registrationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 };

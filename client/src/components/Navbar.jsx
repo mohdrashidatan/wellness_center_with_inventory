@@ -46,13 +46,15 @@ const Navbar = () => {
         dropdown: [
           { path: "/therapist/stocks/reports", label: "Reports" },
           { path: "/therapist/stocks/incoming", label: "Received" },
-          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/transfers", label: "Transfers Out" },
           { path: "/therapist/stocks/adjustments", label: "Adjustments" },
+          { path: "/therapist/stocks/serials", label: "Serial Register" },
         ],
       },
       {
         label: "Setup",
         dropdown: [
+          { path: "/therapist/setup/customers", label: "Customers" },
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },
@@ -76,13 +78,15 @@ const Navbar = () => {
         dropdown: [
           { path: "/therapist/stocks/reports", label: "Reports" },
           { path: "/therapist/stocks/incoming", label: "Received" },
-          { path: "/therapist/stocks/transfers", label: "Transfers" },
+          { path: "/therapist/stocks/transfers", label: "Transfers Out" },
           { path: "/therapist/stocks/adjustments", label: "Adjustments" },
+          { path: "/therapist/stocks/serials", label: "Serial Register" },
         ],
       },
       {
         label: "Setup",
         dropdown: [
+          { path: "/therapist/setup/customers", label: "Customers" },
           { path: "/therapist/setup/uom", label: "UOM" },
           { path: "/therapist/setup/users", label: "Users" },
           { path: "/therapist/setup/products", label: "Products" },

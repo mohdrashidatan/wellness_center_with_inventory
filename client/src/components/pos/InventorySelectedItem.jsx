@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
-export default function InventorySelectedItem({ id, name, price, subPrice, amount, selectedData, setSelectedData, index }) {
+export default function InventorySelectedItem({ id, name, variantLabel, price, subPrice, amount, selectedData, setSelectedData, index }) {
   const [discountNumber, setDiscountNumber] = useState(0);
   const [percentDiscount, setPercentDiscount] = useState(false);
   const [totalItemPrice, setTotalItemPrice] = useState(subPrice);
@@ -114,6 +114,9 @@ export default function InventorySelectedItem({ id, name, price, subPrice, amoun
         <img src='/wonder.png' alt='' className='w-12 h-12 object-cover rounded-lg' />
         <div>
           <p className='text-m'>{name}</p>
+          {variantLabel && (
+            <p className='text-xs text-purple-600 font-medium'>{variantLabel}</p>
+          )}
           <p className='text-sm'>${price}</p>
         </div>
       </div>

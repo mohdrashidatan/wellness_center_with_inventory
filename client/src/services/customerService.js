@@ -20,19 +20,20 @@ export const customerService = {
     }
   },
   updateRegistration: async (id, data1, data2) => {
-    console.log(data1);
     const margedData = { data1, data2 };
     const token = authService.getToken();
-    try {
-      const response = await api.put(`${API_BASE_URL}/api/customer/${id}`, margedData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Error registation", error);
-    }
+    const response = await api.put(`${API_BASE_URL}/api/customer/${id}`, margedData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  getAll: async () => {
+    const token = authService.getToken();
+    const response = await api.get(`${API_BASE_URL}/api/customer`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
   },
 
   getCustomerData: async (id) => {

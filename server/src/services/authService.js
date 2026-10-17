@@ -1,8 +1,15 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const User = require("../models/userModel");
 const { generateAuthToken } = require("../utils/tokenUtils");
+const { sendPasswordResetEmail } = require("../utils/mailer");
 const Customer = require("../models/customerModel");
 const Therapist = require("../models/therapistModal");
+
+const RESET_TOKEN_EXP_MIN = parseInt(process.env.RESET_PASSWORD_TOKEN_EXP_MIN, 10) || 30;
+
+const hashResetToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
 
 const registerUser = async (userData) => {
   const { username, email, password } = userData;
@@ -78,7 +85,42 @@ const loginUser = async (email, password) => {
   };
 };
 
+const requestPasswordReset = async (email) => {
+  const user = await User.findUserByEmail(email);
+
+  // Always behave the same whether or not the account exists, so the
+  // response can't be used to enumerate registered emails.
+  if (!user) {
+    return;
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashResetToken(rawToken);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_EXP_MIN * 60 * 1000);
+
+  await User.setResetToken(user.useracid, tokenHash, expiresAt);
+
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${rawToken}`;
+  await sendPasswordResetEmail(user.email, resetUrl);
+};
+
+const resetPassword = async (token, newPassword) => {
+  const tokenHash = hashResetToken(token);
+  const user = await User.findUserByResetTokenHash(tokenHash);
+
+  if (!user) {
+    throw new Error("Invalid or expired reset token");
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  await User.resetPasswordAndClearToken(user.useracid, hashedPassword);
+};
+
 module.exports = {
   registerUser,
   loginUser,
+  requestPasswordReset,
+  resetPassword,
 };

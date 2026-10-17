@@ -1,4 +1,4 @@
-ALTER TABLE `pwg_new`.`userac` 
+ALTER TABLE `primeapp_pwgnew`.`userac` 
 ADD COLUMN `active` BIT NOT NULL DEFAULT 1 AFTER `role`,
 CHANGE COLUMN `role` `role` ENUM('Customer', 'Therapist', 'Admin') NULL DEFAULT NULL ;
 
@@ -15,7 +15,7 @@ CREATE TABLE `grnd` (
   `active` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`grnid`),
   KEY `contactid` (`contactid`)
-) ENGINE=InnoDB AUTO_INCREMENT=123 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=123 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `grndetails` (
   `grnlineid` int NOT NULL AUTO_INCREMENT,
@@ -32,7 +32,7 @@ CREATE TABLE `grndetails` (
   `active` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`grnlineid`),
   KEY `grnid` (`grnid`)
-) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -46,7 +46,7 @@ CREATE TABLE uom (
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (uom_id),
   UNIQUE KEY uq_uom_code (code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -71,7 +71,7 @@ CREATE TABLE product_master (
   CONSTRAINT fk_pm_base_uom
     FOREIGN KEY (base_uom_id) REFERENCES uom(uom_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -108,7 +108,7 @@ CREATE TABLE product_uom (
 
   CONSTRAINT chk_factor_to_base
     CHECK (factor_to_base > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -126,7 +126,7 @@ CREATE TABLE variant_option (
   CONSTRAINT fk_vo_product
     FOREIGN KEY (productid) REFERENCES products(productid)
     ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE variant_option_value (
@@ -141,7 +141,7 @@ CREATE TABLE variant_option_value (
   CONSTRAINT fk_vov_option
     FOREIGN KEY (option_id) REFERENCES variant_option(option_id)
     ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -170,7 +170,7 @@ CREATE TABLE product_sku (
   CONSTRAINT fk_sku_product
     FOREIGN KEY (productid) REFERENCES products(productid)
     ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -190,4 +190,4 @@ CREATE TABLE product_sku_value (
   CONSTRAINT fk_psv_value
     FOREIGN KEY (value_id) REFERENCES variant_option_value(value_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

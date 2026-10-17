@@ -3,7 +3,7 @@ const { validateBody } = require("../middlewares/validateSchema");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const {
   getProducts, searchSku, searchProductsHandler, getProductList, getProductById, updateProduct,
-  deactivateProduct, createProduct, getProductTransactions,
+  deactivateProduct, createProduct, getProductTransactions, getSubcats,
   getProductSkus,
   getProductVariants, createVariantOption, updateVariantOption, deleteVariantOption,
   addVariantValue, updateVariantValue, deleteVariantValue,
@@ -15,6 +15,7 @@ router.get("/", authenticateToken, getProducts);
 router.post("/", authenticateToken, createProduct);
 router.get("/list", authenticateToken, getProductList);
 router.get("/search", authenticateToken, searchProductsHandler);
+router.get("/subcats", authenticateToken, getSubcats);
 router.get("/sku/search", authenticateToken, searchSku);
 router.get("/:id/transactions", authenticateToken, getProductTransactions);
 router.get("/:id", authenticateToken, getProductById);

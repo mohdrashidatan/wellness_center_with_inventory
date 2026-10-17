@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, CheckSquare, Square } from "lucide-react";
 import { grnService } from "@/services/grnService";
+import SerialEntry from "@/components/serial/SerialEntry";
 import { contactsService } from "@/services/contactsService";
 import toast from "react-hot-toast";
 import Modal from "@/shared/Modal";
@@ -21,26 +23,47 @@ const emptyLine = (consign = false) => ({
   batch_no:     "",
   expiry_date:  "",
   remarks:      "",
+  is_serialized:     0,
+  serial_capture_at: null,
+  serials:           [],
 });
 
 /* ─── Lookup input (shared for supplier & item) ─────────────────── */
-function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderOption, creatable, creatableLabel }) {
+function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderOption, creatable, creatableLabel, dropWidthScale = 1 }) {
   const [query, setQuery]       = useState(value || "");
   const [results, setResults]   = useState([]);
   const [open, setOpen]         = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [dropPos, setDropPos]   = useState({ top: 0, left: 0, width: 0 });
   const timer                   = useRef(null);
   const wrapRef                 = useRef(null);
 
-  // sync external clear
   useEffect(() => { setQuery(value || ""); }, [value]);
 
-  // close on outside click
   useEffect(() => {
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Reposition the portal dropdown whenever it opens or the window scrolls/resizes
+  useEffect(() => {
+    if (!open || !wrapRef.current) return;
+    const update = () => {
+      if (!wrapRef.current) return;
+      const r = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
 
   const handleChange = (e) => {
     const v = e.target.value;
@@ -50,11 +73,40 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
     timer.current = setTimeout(async () => {
       setLoading(true);
       try { const r = await onSearch(v); setResults(r); setOpen(true); }
-      catch { /* silent */ } finally { setLoading(false); }
+      catch (err) { console.error("Lookup search error:", err); setOpen(true); } finally { setLoading(false); }
     }, 280);
   };
 
   const choose = (item) => { onSelect(item); setQuery(""); setOpen(false); setResults([]); };
+
+  const dropdown = open ? createPortal(
+    <div
+      style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width * dropWidthScale, zIndex: 9999 }}
+      className="bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto"
+    >
+      {results.map((r) => (
+        <div
+          key={r.productid || r.id || r.sku_id || r.contactid}
+          className="px-3 py-2 text-sm hover:bg-purple-50 cursor-pointer"
+          onMouseDown={() => choose(r)}
+        >
+          {renderOption(r)}
+        </div>
+      ))}
+      {results.length === 0 && (
+        <div className="px-3 py-2 text-sm text-gray-400">No results</div>
+      )}
+      {creatable && query.trim() && (
+        <div
+          className="px-3 py-2 text-sm text-purple-600 font-medium hover:bg-purple-50 cursor-pointer border-t"
+          onMouseDown={() => { onCreate(query.trim()); setOpen(false); setQuery(""); }}
+        >
+          + {creatableLabel || `Add "${query.trim()}"`}
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null;
 
   return (
     <div className="relative" ref={wrapRef}>
@@ -65,30 +117,7 @@ function LookupInput({ value, placeholder, onSearch, onSelect, onCreate, renderO
         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
       />
       {loading && <span className="absolute right-3 top-2.5 text-xs text-gray-400">…</span>}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
-          {results.map((r) => (
-            <div
-              key={r.productid || r.id || r.sku_id || r.contactid}
-              className="px-3 py-2 text-sm hover:bg-purple-50 cursor-pointer"
-              onMouseDown={() => choose(r)}
-            >
-              {renderOption(r)}
-            </div>
-          ))}
-          {results.length === 0 && (
-            <div className="px-3 py-2 text-sm text-gray-400">No results</div>
-          )}
-          {creatable && query.trim() && (
-            <div
-              className="px-3 py-2 text-sm text-purple-600 font-medium hover:bg-purple-50 cursor-pointer border-t"
-              onMouseDown={() => { onCreate(query.trim()); setOpen(false); setQuery(""); }}
-            >
-              + {creatableLabel || `Add "${query.trim()}"`}
-            </div>
-          )}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
@@ -160,7 +189,17 @@ export default function GrnEntryPage() {
     setLines((prev) =>
       prev.map((l) =>
         l._key === key
-          ? { ...l, productid: product.productid, product_name: product.name, product_desc: product.description || "" }
+          ? {
+              ...l,
+              productid:    product.productid,
+              product_name: product.name,
+              product_desc: product.description || "",
+              uom:          product.base_uom_code || "",
+              // Serial prompt only appears for products configured for it.
+              is_serialized:     product.is_serialized ? 1 : 0,
+              serial_capture_at: product.serial_capture_at || null,
+              serials:           [],
+            }
           : l
       )
     );
@@ -172,7 +211,8 @@ export default function GrnEntryPage() {
 
   /* ── save ── */
   const handleSave = async () => {
-    if (!header.receiptdate) { toast.error("Received date is required"); return; }
+    if (!header.receiptdate)        { toast.error("Received date is required"); return; }
+    if (!header.delivery_order_no.trim()) { toast.error("Delivery Order No. is required"); return; }
     if (lines.length === 0)  { toast.error("Add at least one item line"); return; }
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i].productid)   { toast.error(`Line ${i + 1}: Item is required`); return; }
@@ -196,6 +236,8 @@ export default function GrnEntryPage() {
           remarks:     l.remarks,
           batch_no:    l.batch_no,
           expiry_date: l.expiry_date || null,
+          // Optional on stock in — an empty list is simply not recorded.
+          serials:     l.serials || [],
         })),
       });
       toast.success("GRN saved successfully");
@@ -263,7 +305,7 @@ export default function GrnEntryPage() {
 
           {/* DO number */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Delivery Order No.</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Delivery Order No. *</label>
             <input
               value={header.delivery_order_no}
               onChange={(e) => setHdr("delivery_order_no", e.target.value)}
@@ -306,6 +348,7 @@ export default function GrnEntryPage() {
                 <th className="px-3 py-2 text-center w-24">Consignment</th>
                 <th className="px-3 py-2 text-left w-28">Batch No.</th>
                 <th className="px-3 py-2 text-left w-32">Expiry Date</th>
+                <th className="px-3 py-2 text-left w-56">Serial No.</th>
                 <th className="px-3 py-2 text-left">Remarks</th>
                 <th className="px-3 py-2 w-8"></th>
               </tr>
@@ -336,6 +379,7 @@ export default function GrnEntryPage() {
                         placeholder="Search product…"
                         onSearch={grnService.searchProducts}
                         onSelect={(p) => handleProductSelect(ln._key, p)}
+                        dropWidthScale={4}
                         renderOption={(p) => (
                           <div className="overflow-hidden">
                             <span className="font-medium text-gray-800">{p.name}</span>
@@ -414,6 +458,22 @@ export default function GrnEntryPage() {
                       onChange={(e) => updateLine(ln._key, "expiry_date", e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
+                  </td>
+
+                  {/* Serial No — optional on stock in, shown only for serialised items */}
+                  <td className="px-3 py-2 align-top">
+                    {ln.is_serialized ? (
+                      <SerialEntry
+                        mode="in"
+                        productId={ln.productid}
+                        qty={ln.qty}
+                        captureAt={ln.serial_capture_at}
+                        value={ln.serials || []}
+                        onChange={(next) => updateLine(ln._key, "serials", next)}
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
                   </td>
 
                   {/* Remarks */}

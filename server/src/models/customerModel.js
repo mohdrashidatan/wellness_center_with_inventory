@@ -46,12 +46,14 @@ const insertCustomer = async (data, idaccount = 0, idUser2) => {
     emergency_contact_no,
     dateOfBirth,
     referred_other,
+    username,
+    deliverymethod,
     editedby, // tambahan
   } = data;
 
-  const query = `INSERT INTO customers (name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, registration_date, account_id, dateofbirth, referred_other, entereddate, enteredby) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  const query = `INSERT INTO customers (name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, registration_date, account_id, dateofbirth, referred_other, username, deliverymethod, entereddate, enteredby) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
-  const [result] = await pool.query(query, [name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, new Date(), idaccount, dateOfBirth, referred_other, new Date(), idUser2]);
+  const [result] = await pool.query(query, [name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, new Date(), idaccount, dateOfBirth, referred_other, username||null, deliverymethod||null, new Date(), idUser2]);
   console.log("idd");
   console.log(result.insertId);
   return result.insertId;
@@ -72,28 +74,32 @@ const updateCustomer = async (updateData, id, idUser2) => {
     emergency_contact_no,
     dateOfBirth,
     referred_other,
+    username,
+    deliverymethod,
     editedby, // tambahan
   } = updateData;
 
   console.log(updateData);
 
   const [result] = await pool.query(
-    `UPDATE customers SET 
-      name = ?, 
-      email = ?, 
-      contact_no = ?, 
-      address = ?, 
-      postalcode = ?, 
-      country = ?, 
-      referred_by = ?, 
-      emergency_contact_name = ?, 
+    `UPDATE customers SET
+      name = ?,
+      email = ?,
+      contact_no = ?,
+      address = ?,
+      postalcode = ?,
+      country = ?,
+      referred_by = ?,
+      emergency_contact_name = ?,
       emergency_contact_no = ?,
       dateofbirth=?,
       referred_other=?,
+      username=?,
+      deliverymethod=?,
       editedby=?,
       editeddate=?
      WHERE customerid = ?`,
-    [name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, dateOfBirth, referred_other, idUser2, new Date(), id]
+    [name, email, contact_no, address, postalcode, country, referred_by, emergency_contact_name, emergency_contact_no, dateOfBirth||null, referred_other, username||null, deliverymethod||null, idUser2, new Date(), id]
   );
 
   return result.affectedRows > 0;

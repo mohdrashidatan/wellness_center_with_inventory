@@ -22,17 +22,23 @@ const checkboxCls = "h-4 w-4 rounded border-gray-300 accent-gray-800 cursor-poin
 
 // ─── Create Modal ─────────────────────────────────────────────────────────────
 const emptyForm = {
+  itemcode: "",
   name: "",
   productcat: "Product",
+  brand: "",
+  subcat: "",
+  barcode: "",
   unitprice: "",
   baseprice: "",
   packageprice: "",
+  reorder_level: "",
   description: "",
   base_uom_id: "",
   is_stock_item: true,
   is_variant_enabled: false,
   is_serialized: false,
   is_batch_tracked: false,
+  serial_capture_at: "Receipt",
 };
 
 // Builds a draft option: { option_name, values: string[] }
@@ -127,7 +133,7 @@ function VariantDraftEditor({ options, onChange }) {
   );
 }
 
-function ProductCreateModal({ uomList, onSave, onClose }) {
+function ProductCreateModal({ uomList, subcats, onSave, onClose }) {
   const [form, setForm]         = useState(emptyForm);
   const [saving, setSaving]     = useState(false);
   const [nameError, setNameError] = useState("");
@@ -135,7 +141,7 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
 
   const set = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }));
-    if (field === "name") setNameError("");
+    if (field === "name" || field === "itemcode") setNameError("");
   };
 
   const handleSubmit = async (e) => {
@@ -174,7 +180,7 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
       }
     } catch (err) {
       if (err?.response?.status === 409) {
-        setNameError("A product with this name already exists.");
+        setNameError(err.response.data?.message || "A product with this name already exists.");
       } else {
         toast.error("Failed to create product");
       }
@@ -187,9 +193,18 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
     <Modal onClose={onClose}>
       <h2 className="text-lg font-semibold text-gray-800 mb-4">New Product</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name & Category */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Item Code & Name */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
+            <label className={labelCls}>Item Code</label>
+            <input
+              className={inputCls}
+              value={form.itemcode}
+              onChange={(e) => set("itemcode", e.target.value.toUpperCase())}
+              placeholder="e.g. ITC-CLS"
+            />
+          </div>
+          <div className="md:col-span-2">
             <label className={labelCls}>Name *</label>
             <input
               className={`${inputCls} ${nameError ? "border-red-400 focus:ring-red-400" : ""}`}
@@ -199,6 +214,10 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
             />
             {nameError && <p className="text-xs text-red-500 mt-1">{nameError}</p>}
           </div>
+        </div>
+
+        {/* Category, Brand & Sub-category */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Category</label>
             <select
@@ -208,6 +227,19 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
               <option value="Product">Product</option>
               <option value="Service">Service</option>
             </select>
+          </div>
+          <div>
+            <label className={labelCls}>Brand</label>
+            <input className={inputCls} value={form.brand}
+              onChange={(e) => set("brand", e.target.value)} placeholder="e.g. Prife" />
+          </div>
+          <div>
+            <label className={labelCls}>Sub-category</label>
+            <input className={inputCls} list="subcat-options" value={form.subcat}
+              onChange={(e) => set("subcat", e.target.value)} placeholder="e.g. Eyewear" />
+            <datalist id="subcat-options">
+              {subcats.map((s) => <option key={s} value={s} />)}
+            </datalist>
           </div>
         </div>
 
@@ -227,6 +259,20 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
             <label className={labelCls}>Package Price</label>
             <input type="number" min="0" step="0.01" className={inputCls}
               value={form.packageprice} onChange={(e) => set("packageprice", e.target.value)} />
+          </div>
+        </div>
+
+        {/* Barcode & Reorder Level */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Barcode</label>
+            <input className={inputCls} value={form.barcode}
+              onChange={(e) => set("barcode", e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Reorder Level</label>
+            <input type="number" min="0" step="1" className={inputCls}
+              value={form.reorder_level} onChange={(e) => set("reorder_level", e.target.value)} />
           </div>
         </div>
 
@@ -262,6 +308,21 @@ function ProductCreateModal({ uomList, onSave, onClose }) {
             ))}
           </div>
         </div>
+
+        {/* Serial policy — when the serial becomes known, not whether it is stored */}
+        {form.is_serialized && (
+          <div className="border-t border-gray-100 pt-4">
+            <label className={labelCls}>Serial captured at</label>
+            <select className={inputCls} value={form.serial_capture_at}
+              onChange={(e) => set("serial_capture_at", e.target.value)}>
+              <option value="Receipt">Receipt — serial is on the box, key in at stock in</option>
+              <option value="Sale">Sale — serial is applied when the item is sold</option>
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Receipt items can be picked from stock at sale. Sale items have no serial until sold.
+            </p>
+          </div>
+        )}
 
         {/* Variant options (shown only when variant enabled) */}
         {form.is_variant_enabled && (
@@ -302,6 +363,7 @@ export default function ProductsSetupPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [uomList, setUomList] = useState([]);
+  const [subcats, setSubcats] = useState([]);
 
   const [modal, setModal] = useState(null); // 'create'
   const [jumpPage, setJumpPage] = useState("");
@@ -329,9 +391,12 @@ export default function ProductsSetupPage() {
     fetchList(search, page);
   }, [search, page, fetchList]);
 
-  // UOM list needed only for Create modal
+  // UOM list and sub-category suggestions needed only for Create modal
   useEffect(() => {
-    if (modal === "create") uomService.getAll().then(setUomList).catch(() => {});
+    if (modal === "create") {
+      uomService.getAll().then(setUomList).catch(() => {});
+      productsService.getSubcats().then(setSubcats).catch(() => {});
+    }
   }, [modal]);
 
   const handleSearch = (e) => {
@@ -400,8 +465,11 @@ export default function ProductsSetupPage() {
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="w-12">#</TableHead>
+              <TableHead className="w-28">Item Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Sub-category</TableHead>
+              <TableHead className="text-right w-28">Qty on Hand</TableHead>
               <TableHead>Base UOM</TableHead>
               <TableHead className="text-right">Unit Price</TableHead>
               <TableHead className="text-right">Base Price</TableHead>
@@ -412,13 +480,13 @@ export default function ProductsSetupPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                <TableCell colSpan={11} className="text-center py-10 text-gray-400">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                <TableCell colSpan={11} className="text-center py-10 text-gray-400">
                   No products found.
                 </TableCell>
               </TableRow>
@@ -431,6 +499,7 @@ export default function ProductsSetupPage() {
                   <TableCell className="text-gray-400 text-xs">
                     {(page - 1) * ITEMS_PER_PAGE + idx + 1}
                   </TableCell>
+                  <TableCell className="font-mono text-xs text-gray-600">{fmt(row.itemcode)}</TableCell>
                   <TableCell className="font-medium">{fmt(row.name)}</TableCell>
                   <TableCell>
                     <span
@@ -441,6 +510,15 @@ export default function ProductsSetupPage() {
                       }`}>
                       {fmt(row.productcat)}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-gray-500">{fmt(row.subcat)}</TableCell>
+                  <TableCell className={`text-right font-semibold ${
+                    row.qty_on_hand == null ? "text-gray-400"
+                    : row.qty_on_hand < 0   ? "text-red-600"
+                    : row.qty_on_hand === 0  ? "text-gray-400"
+                    : "text-gray-800"
+                  }`}>
+                    {row.qty_on_hand ?? "—"}
                   </TableCell>
                   <TableCell>{fmt(row.base_uom_code)}</TableCell>
                   <TableCell className="text-right">{fmtPrice(row.unitprice)}</TableCell>
@@ -524,6 +602,7 @@ export default function ProductsSetupPage() {
       {modal === "create" && (
         <ProductCreateModal
           uomList={uomList}
+          subcats={subcats}
           onSave={handleCreate}
           onClose={() => setModal(null)}
         />

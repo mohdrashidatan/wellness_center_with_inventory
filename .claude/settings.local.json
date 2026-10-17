@@ -30,7 +30,9 @@
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.name)",
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" config user.email)",
       "Bash(git -C \"d:\\\\System Projects\\\\AI Wellness Centre\\\\pwg-theraphy-main\" remote add:*)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

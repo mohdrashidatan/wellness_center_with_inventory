@@ -25,18 +25,24 @@ const labelCls = "block text-xs text-gray-500 mb-1";
 const checkboxCls = "h-4 w-4 rounded border-gray-300 accent-gray-800 cursor-pointer";
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
-function ProductEditModal({ product, uomList, onSave, onClose }) {
+function ProductEditModal({ product, uomList, subcats = [], onSave, onClose }) {
   const [form, setForm] = useState({
+    itemcode: product.itemcode || "",
     name: product.name || "",
     productcat: product.productcat || "Product",
+    brand: product.brand || "",
+    subcat: product.subcat || "",
+    barcode: product.barcode || "",
     unitprice: product.unitprice ?? "",
     baseprice: product.baseprice ?? "",
     packageprice: product.packageprice ?? "",
+    reorder_level: product.reorder_level ?? "",
     description: product.description || "",
     base_uom_id: "",
     is_stock_item: !!product.is_stock_item,
     is_variant_enabled: !!product.is_variant_enabled,
     is_serialized: !!product.is_serialized,
+    serial_capture_at: product.serial_capture_at || "Receipt",
     is_batch_tracked: !!product.is_batch_tracked,
   });
   const [saving, setSaving] = useState(false);
@@ -64,19 +70,33 @@ function ProductEditModal({ product, uomList, onSave, onClose }) {
     <Modal onClose={onClose}>
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Edit Product</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label className={labelCls}>Name *</label><input className={W} value={form.name} onChange={(e) => set("name", e.target.value)} required /></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><label className={labelCls}>Item Code</label><input className={W} value={form.itemcode} onChange={(e) => set("itemcode", e.target.value.toUpperCase())} placeholder="e.g. ITC-CLS" /></div>
+          <div className="md:col-span-2"><label className={labelCls}>Name *</label><input className={W} value={form.name} onChange={(e) => set("name", e.target.value)} required /></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div><label className={labelCls}>Category</label>
             <select className={W} value={form.productcat} onChange={(e) => set("productcat", e.target.value)}>
               <option value="Product">Product</option>
               <option value="Service">Service</option>
             </select>
           </div>
+          <div><label className={labelCls}>Brand</label><input className={W} value={form.brand} onChange={(e) => set("brand", e.target.value)} placeholder="e.g. Prife" /></div>
+          <div><label className={labelCls}>Sub-category</label>
+            <input className={W} list="subcat-options-edit" value={form.subcat} onChange={(e) => set("subcat", e.target.value)} placeholder="e.g. Eyewear" />
+            <datalist id="subcat-options-edit">
+              {subcats.map((s) => <option key={s} value={s} />)}
+            </datalist>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div><label className={labelCls}>Unit Price</label><input type="number" min="0" step="0.01" className={W} value={form.unitprice} onChange={(e) => set("unitprice", e.target.value)} /></div>
           <div><label className={labelCls}>Base Price</label><input type="number" min="0" step="0.01" className={W} value={form.baseprice} onChange={(e) => set("baseprice", e.target.value)} /></div>
           <div><label className={labelCls}>Package Price</label><input type="number" min="0" step="0.01" className={W} value={form.packageprice} onChange={(e) => set("packageprice", e.target.value)} /></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label className={labelCls}>Barcode</label><input className={W} value={form.barcode} onChange={(e) => set("barcode", e.target.value)} /></div>
+          <div><label className={labelCls}>Reorder Level</label><input type="number" min="0" step="1" className={W} value={form.reorder_level} onChange={(e) => set("reorder_level", e.target.value)} /></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label className={labelCls}>Base UOM</label>
@@ -97,6 +117,15 @@ function ProductEditModal({ product, uomList, onSave, onClose }) {
             ))}
           </div>
         </div>
+        {form.is_serialized && (
+          <div>
+            <label className={labelCls}>Serial captured at</label>
+            <select className={W} value={form.serial_capture_at} onChange={(e) => set("serial_capture_at", e.target.value)}>
+              <option value="Receipt">Receipt — serial is on the box, key in at stock in</option>
+              <option value="Sale">Sale — serial is applied when the item is sold</option>
+            </select>
+          </div>
+        )}
         <div><label className={labelCls}>Description</label><textarea className={`${W} resize-none`} rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-100 transition">Cancel</button>
@@ -162,6 +191,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState(null);
   const [uomList, setUomList] = useState([]);
+  const [subcats, setSubcats] = useState([]);
   const [modal, setModal] = useState(null); // 'edit' | 'delete'
 
   // Transaction list state
@@ -179,6 +209,7 @@ export default function ProductDetailPage() {
       .then(setProduct)
       .catch(() => toast.error("Failed to load product"));
     uomService.getAll().then(setUomList).catch(() => {});
+    productsService.getSubcats().then(setSubcats).catch(() => {});
   }, [id]);
 
   // Load transactions whenever applied filters change
@@ -214,8 +245,9 @@ export default function ProductDetailPage() {
       setProduct(updated);
       setModal(null);
       toast.success("Product updated");
-    } catch {
-      toast.error("Failed to update product");
+    } catch (err) {
+      // 409 = duplicate name or item code; surface the server's reason.
+      toast.error(err?.response?.data?.message || "Failed to update product");
     }
   };
 
@@ -236,7 +268,9 @@ export default function ProductDetailPage() {
   const DetailRow = ({ label, value }) => (
     <div className="flex gap-2">
       <span className="w-40 text-xs text-gray-500 shrink-0">{label}</span>
-      <span className="text-sm font-medium text-gray-800">{value}</span>
+      <span className="text-sm font-medium text-gray-800">
+        {value === null || value === undefined || value === "" ? "—" : value}
+      </span>
     </div>
   );
 
@@ -279,6 +313,11 @@ export default function ProductDetailPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-10 gap-y-2">
           <DetailRow label="Product ID" value={product.productid} />
+          <DetailRow label="Item Code" value={product.itemcode} />
+          <DetailRow label="Brand" value={product.brand} />
+          <DetailRow label="Sub-category" value={product.subcat} />
+          <DetailRow label="Barcode" value={product.barcode} />
+          <DetailRow label="Reorder Level" value={product.reorder_level} />
           <DetailRow label="Base UOM" value={product.base_uom_code ? `${product.base_uom_code} — ${product.base_uom_name}` : "—"} />
           <DetailRow label="Unit Price" value={fmtPrice(product.unitprice)} />
           <DetailRow label="Base Price" value={fmtPrice(product.baseprice)} />
@@ -286,6 +325,9 @@ export default function ProductDetailPage() {
           <DetailRow label="Stock Item" value={fmtBool(product.is_stock_item)} />
           <DetailRow label="Variant Enabled" value={fmtBool(product.is_variant_enabled)} />
           <DetailRow label="Serialized" value={fmtBool(product.is_serialized)} />
+          {!!product.is_serialized && (
+            <DetailRow label="Serial captured at" value={product.serial_capture_at} />
+          )}
           <DetailRow label="Batch Tracked" value={fmtBool(product.is_batch_tracked)} />
           <DetailRow label="Entered Date" value={fmtDate(product.entereddate)} />
           <DetailRow label="Last Edited" value={fmtDate(product.editeddate)} />
@@ -302,17 +344,32 @@ export default function ProductDetailPage() {
       {/* ── Transactions section ── */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">
-            Transaction History
-            <span className="ml-2 text-xs font-normal text-gray-400">({txns.length} record{txns.length !== 1 ? "s" : ""})</span>
-          </h2>
-          <button
-            onClick={() => exportCsv(txns, product.name)}
-            disabled={txns.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-100 disabled:opacity-40 transition">
-            <Download size={14} />
-            Export CSV
-          </button>
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">
+              Transaction History
+              <span className="ml-2 text-xs font-normal text-gray-400">({txns.length} record{txns.length !== 1 ? "s" : ""})</span>
+            </h2>
+          </div>
+          <div className="flex items-center gap-4">
+            {txns.length > 0 && (() => {
+              const net = txns.reduce((sum, r) => sum + Number(r.qty ?? 0), 0);
+              return (
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Net Balance</p>
+                  <p className={`text-2xl font-bold ${net < 0 ? "text-red-600" : net > 0 ? "text-green-700" : "text-gray-500"}`}>
+                    {net > 0 ? "+" : ""}{net}
+                  </p>
+                </div>
+              );
+            })()}
+            <button
+              onClick={() => exportCsv(txns, product.name)}
+              disabled={txns.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-100 disabled:opacity-40 transition">
+              <Download size={14} />
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -336,6 +393,7 @@ export default function ProductDetailPage() {
               <option value="">All</option>
               <option value="GRN">GRN</option>
               <option value="POS">POS</option>
+              <option value="DO">DO</option>
             </select>
           </div>
           <div>
@@ -389,13 +447,17 @@ export default function ProductDetailPage() {
                 <TableRow key={i} className="hover:bg-gray-50">
                   <TableCell className="text-xs whitespace-nowrap">{fmtDateTime(r.txn_date)}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.txn_type === "GRN" ? "bg-teal-100 text-teal-700" : "bg-orange-100 text-orange-700"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      r.txn_type === "GRN" ? "bg-teal-100 text-teal-700"
+                      : r.txn_type === "DO" ? "bg-red-100 text-red-700"
+                      : "bg-orange-100 text-orange-700"
+                    }`}>
                       {r.txn_type}
                     </span>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.ref_no}</TableCell>
                   <TableCell className="text-sm">{fmt(r.party)}</TableCell>
-                  <TableCell className="text-right">{r.qty}</TableCell>
+                  <TableCell className={`text-right font-medium ${r.qty < 0 ? "text-red-600" : ""}`}>{r.qty}</TableCell>
                   <TableCell>{fmt(r.uom)}</TableCell>
                   <TableCell className="text-right">{r.unit_price != null ? Number(r.unit_price).toFixed(2) : "—"}</TableCell>
                   <TableCell className="text-right">{r.total_price != null ? Number(r.total_price).toFixed(2) : "—"}</TableCell>
@@ -409,7 +471,7 @@ export default function ProductDetailPage() {
 
       {/* Modals */}
       {modal === "edit" && (
-        <ProductEditModal product={product} uomList={uomList} onSave={handleSaveEdit} onClose={() => setModal(null)} />
+        <ProductEditModal product={product} uomList={uomList} subcats={subcats} onSave={handleSaveEdit} onClose={() => setModal(null)} />
       )}
       {modal === "delete" && (
         <ConfirmDeactivateModal productName={product.name} onConfirm={handleDeactivate} onClose={() => setModal(null)} />

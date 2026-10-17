@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table, TableBody, TableCaption, TableCell,
-  TableHead, TableHeader, TableRow,
+  TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Eye, Search, X, Plus } from "lucide-react";
@@ -32,6 +32,7 @@ export default function GrnReceivedPage() {
   const navigate = useNavigate();
   const [rows, setRows]           = useState([]);
   const [total, setTotal]         = useState(0);
+  const [totalQty, setTotalQty]   = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [jumpInput, setJumpInput] = useState("");
   const [filters, setFilters]     = useState(emptyFilters);
@@ -59,6 +60,7 @@ export default function GrnReceivedPage() {
       const data = await grnService.getList(params);
       setRows(data.rows);
       setTotal(data.total);
+      setTotalQty(data.total_qty ?? 0);
     } catch {
       toast.error("Failed to load GRN records");
     } finally {
@@ -133,7 +135,7 @@ export default function GrnReceivedPage() {
       <div className="space-y-4">
         {/* ── Page title ── */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Goods Received</h1>
+          <h1 className="text-xl font-bold">Goods Received List</h1>
           <Button
             onClick={() => navigate("/therapist/stocks/grn/new")}
             className="bg-green-600 hover:bg-green-700 text-white flex gap-1"
@@ -250,15 +252,19 @@ export default function GrnReceivedPage() {
         {/* ── Table ── */}
         <div className="rounded-xl border overflow-hidden">
           <Table>
-            <TableCaption>Goods Received Notes</TableCaption>
+            <TableCaption>Goods Received Details</TableCaption>
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="w-28">GRN No.</TableHead>
                 <TableHead>Received Date</TableHead>
+                <TableHead>DO No.</TableHead>
                 <TableHead>Supplier</TableHead>
-                <TableHead>Supplier Code</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right w-20">Qty</TableHead>
+                <TableHead className="w-20">UOM</TableHead>
+                <TableHead className="w-28">Batch No.</TableHead>
+                <TableHead className="w-28">Expiry Date</TableHead>
                 <TableHead>Remarks</TableHead>
                 <TableHead className="w-12 text-center">View</TableHead>
               </TableRow>
@@ -266,31 +272,35 @@ export default function GrnReceivedPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={12} className="text-center text-gray-400 py-10">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-400 py-10">
+                  <TableCell colSpan={12} className="text-center text-gray-400 py-10">
                     No records found
                   </TableCell>
                 </TableRow>
               )}
-              {!loading && rows.map((r) => (
+              {!loading && rows.map((r, idx) => (
                 <TableRow
-                  key={r.grnid}
+                  key={idx}
                   className="hover:bg-prime-color hover:text-white transition-colors cursor-default"
                 >
                   <TableCell className="font-mono font-medium">
                     GRN-{String(r.grnid).padStart(5, "0")}
                   </TableCell>
                   <TableCell>{fmtDate(r.receiptdate)}</TableCell>
+                  <TableCell>{r.delivery_order_no || "—"}</TableCell>
                   <TableCell>{r.supplier_name || "—"}</TableCell>
-                  <TableCell>{r.supplier_code || "—"}</TableCell>
-                  <TableCell>{r.supplier_contact_person || "—"}</TableCell>
-                  <TableCell>{r.supplier_phone || "—"}</TableCell>
+                  <TableCell>{r.product_name || "—"}</TableCell>
+                  <TableCell className="max-w-xs truncate">{r.product_desc || "—"}</TableCell>
+                  <TableCell className="text-right">{r.qty ?? "—"}</TableCell>
+                  <TableCell>{r.uom || "—"}</TableCell>
+                  <TableCell>{r.batch_no || "—"}</TableCell>
+                  <TableCell>{fmtDate(r.expiry_date)}</TableCell>
                   <TableCell className="max-w-xs truncate">{r.remarks || "—"}</TableCell>
                   <TableCell className="text-center">
                     <button
@@ -304,6 +314,19 @@ export default function GrnReceivedPage() {
                 </TableRow>
               ))}
             </TableBody>
+            {applied.itemSearch && (currentPage === totalPages || totalPages <= 1) && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-right font-semibold text-gray-700">
+                    Total Qty
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-gray-900">
+                    {Number(totalQty).toLocaleString()}
+                  </TableCell>
+                  <TableCell colSpan={5} />
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         </div>
 

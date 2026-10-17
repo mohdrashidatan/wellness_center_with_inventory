@@ -153,6 +153,8 @@ const CustomerConsentForm = forwardRef((props, ref) => {
     postalcode: "",
     referred_by: "",
     referred_other: "",
+    username: "",
+    deliverymethod: "",
   });
 
   const handleChange = (e) => {

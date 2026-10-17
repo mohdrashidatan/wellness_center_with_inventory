@@ -52,7 +52,48 @@ const loginUser = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    await authService.requestPasswordReset(email);
+
+    // Same response whether or not the email is registered, to avoid
+    // leaking which addresses have accounts.
+    res.status(200).json({
+      success: true,
+      message: "If that email is registered, a password reset link has been sent",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(200).json({
+      success: true,
+      message: "If that email is registered, a password reset link has been sent",
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    await authService.resetPassword(token, password);
+
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(400).json({
+      success: false,
+      message: "Password reset failed",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   signupUser,
   loginUser,
+  forgotPassword,
+  resetPassword,
 };

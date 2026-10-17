@@ -13,8 +13,12 @@ const receiptRoute = require("./receiptRoute");
 const uomRoute = require("./uomRoute");
 const usersRoute = require("./usersRoute");
 const grnRoute = require("./grnRoute");
+const doRoute = require("./doRoute");
 const contactsRoute = require("./contactsRoute");
 const possetupRoute = require("./possetupRoute");
+const stockReportRoute = require("./stockReportRoute");
+const stockAdjRoute = require("./stockAdjRoute");
+const serialRoute = require("./serialRoute");
 
 const Router = express.Router();
 
@@ -33,7 +37,11 @@ Router.use("/receipt", receiptRoute);
 Router.use("/uom", uomRoute);
 Router.use("/users", usersRoute);
 Router.use("/grn", grnRoute);
+Router.use("/do", doRoute);
 Router.use("/contacts", contactsRoute);
 Router.use("/possetup", possetupRoute);
+Router.use("/stock-report", stockReportRoute);
+Router.use("/stock-adj",    stockAdjRoute);
+Router.use("/serial",       serialRoute);
 
 module.exports = Router;

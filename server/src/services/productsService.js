@@ -30,7 +30,27 @@ const getProductById = async (id) => {
 };
 
 const updateProduct = async (id, data) => {
+  if (data.name) {
+    const dupName = await products.findByName(data.name.trim(), id);
+    if (dupName) {
+      const err = new Error("A product with this name already exists");
+      err.code = "DUPLICATE_NAME";
+      throw err;
+    }
+  }
+  if (data.itemcode) {
+    const dupCode = await products.findByItemcode(data.itemcode.trim(), id);
+    if (dupCode) {
+      const err = new Error(`Item code already used by "${dupCode.name}"`);
+      err.code = "DUPLICATE_ITEMCODE";
+      throw err;
+    }
+  }
   return await products.updateProduct(id, data);
+};
+
+const getSubcats = async () => {
+  return await products.getSubcats();
 };
 
 const deactivateProduct = async (id) => {
@@ -43,6 +63,14 @@ const createProduct = async (data) => {
     const err = new Error("A product with this name already exists");
     err.code = "DUPLICATE_NAME";
     throw err;
+  }
+  if (data.itemcode) {
+    const dupCode = await products.findByItemcode(data.itemcode.trim());
+    if (dupCode) {
+      const err = new Error(`Item code already used by "${dupCode.name}"`);
+      err.code = "DUPLICATE_ITEMCODE";
+      throw err;
+    }
   }
   const newId = await products.createProduct(data);
   return await products.getProductById(newId);
@@ -110,7 +138,7 @@ const deactivateVariantValue = async (valueId) => {
 
 module.exports = {
   getDataProducts, searchSku, searchProducts, getProductList, getProductById, updateProduct,
-  deactivateProduct, createProduct, getProductTransactions,
+  deactivateProduct, createProduct, getProductTransactions, getSubcats,
   getProductSkus,
   getProductVariants, createVariantOption, updateVariantOption, deactivateVariantOption,
   addVariantValue, updateVariantValue, deactivateVariantValue,

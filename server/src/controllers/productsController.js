@@ -61,7 +61,20 @@ const updateProduct = async (req, res) => {
     const updated = await productsService.getProductById(id);
     res.status(200).json(updated);
   } catch (error) {
+    if (error.code === "DUPLICATE_NAME" || error.code === "DUPLICATE_ITEMCODE") {
+      return res.status(409).json({ message: error.message });
+    }
     console.error("Error updating product:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const getSubcats = async (req, res) => {
+  try {
+    const data = await productsService.getSubcats();
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Error fetching sub-categories:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -81,7 +94,7 @@ const createProduct = async (req, res) => {
     const product = await productsService.createProduct(req.body);
     res.status(201).json(product);
   } catch (error) {
-    if (error.code === "DUPLICATE_NAME") {
+    if (error.code === "DUPLICATE_NAME" || error.code === "DUPLICATE_ITEMCODE") {
       return res.status(409).json({ message: error.message });
     }
     console.error("Error creating product:", error);
@@ -201,7 +214,7 @@ const deleteVariantValue = async (req, res) => {
 
 module.exports = {
   getProducts, searchSku, searchProductsHandler, getProductList, getProductById, updateProduct,
-  deactivateProduct, createProduct, getProductTransactions,
+  deactivateProduct, createProduct, getProductTransactions, getSubcats,
   getProductSkus,
   getProductVariants, createVariantOption, updateVariantOption, deleteVariantOption,
   addVariantValue, updateVariantValue, deleteVariantValue,
