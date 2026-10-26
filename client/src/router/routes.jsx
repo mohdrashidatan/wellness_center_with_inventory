@@ -47,6 +47,7 @@ import StockReportPage from "@/pages/StockReportPage";
 import StockAdjPage from "@/pages/StockAdjPage";
 import SerialRegisterPage from "@/pages/SerialRegisterPage";
 import CustomerListPage from "@/pages/CustomerListPage";
+import SingpassCompletePage from "@/pages/SingpassCompletePage";
 
 const privateRoutes = {
   path: "/",
@@ -137,6 +138,11 @@ const publicRoutes = [
         <Logout />
       </PublicRoute>
     ),
+  },
+  {
+    // Singpass hand-off; not wrapped in PublicRoute so the code is always consumed here.
+    path: "/auth/singpass/complete",
+    element: <SingpassCompletePage />,
   },
   {
     path: "/forgot-password",

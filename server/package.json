@@ -5,13 +5,19 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "singpass:keys": "node scripts/singpass-generate-keys.js",
+    "singpass:mock": "node test/singpass/runMockSingpass.js",
+    "pilot": "node -r dotenv/config index.js dotenv_config_path=.env.pilot"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "exceljs": "^4.4.0",
+    "jose": "^6.2.12",
     "nodemon": "^3.1.14"
   },
   "dependencies": {
@@ -26,6 +32,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.14.1",
     "nodemailer": "^7.0.5",
+    "openid-client": "^6.8.8",
     "zod": "^3.25.30"
   }
 }

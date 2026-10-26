@@ -7,6 +7,7 @@ import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { SINGPASS_ENABLED, singpassService } from "@/services/singpassService";
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -107,6 +108,23 @@ const LoginPage = () => {
                 "LOGIN"
               )}
             </Button>
+
+            {SINGPASS_ENABLED && (
+              <>
+                <div className='flex items-center gap-3 text-xs text-gray-600'>
+                  <span className='h-px flex-1 bg-gray-300' />
+                  or
+                  <span className='h-px flex-1 bg-gray-300' />
+                </div>
+                <Button
+                  type='button'
+                  className='w-full bg-white text-black border border-gray-300 hover:bg-gray-100 rounded-3xl p-5'
+                  disabled={loading}
+                  onClick={() => window.location.assign(singpassService.loginUrl())}>
+                  Login with <span className='font-bold text-red-600 ml-1'>Singpass</span>
+                </Button>
+              </>
+            )}
           </div>
 
           <div className='mt-6 text-center'>

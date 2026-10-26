@@ -19,10 +19,19 @@ const possetupRoute = require("./possetupRoute");
 const stockReportRoute = require("./stockReportRoute");
 const stockAdjRoute = require("./stockAdjRoute");
 const serialRoute = require("./serialRoute");
+const { loadSingpassConfig } = require("../config/singpass");
+
+// Throws on invalid Singpass settings, so a misconfigured server fails to start.
+const singpassConfig = loadSingpassConfig();
 
 const Router = express.Router();
 
 // Auth Route
+if (singpassConfig.enabled) {
+  const { createDefaultSingpassRouter } = require("./singpassRoutes");
+  Router.use("/auth/singpass", createDefaultSingpassRouter(singpassConfig));
+  console.log(`[singpass] Login with Singpass enabled (${singpassConfig.environment}: ${singpassConfig.issuerUrl})`);
+}
 Router.use("/auth", authRoute);
 Router.use("/profile", profileRoute);
 Router.use("/customer", customerRoute);

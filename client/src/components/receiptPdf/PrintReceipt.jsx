@@ -139,7 +139,7 @@ export default function PrintReceipt({ selectedData, personData, formWalkinData,
 
         /* ── Receipt Layout ── */
         #printreceipt {
-          font-family: 'Segoe UI', Arial, sans-serif;
+          font-family: "Helvetica Neue", Helvetica, Arimo, Arial, sans-serif;
           font-size: 9pt;
           color: #222;
           width: 100%;

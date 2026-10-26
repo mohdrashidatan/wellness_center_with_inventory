@@ -1,15 +1,11 @@
 import React from "react";
-import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 
-Font.register({
-  family: "Lexend",
-  src: "/Lexend-Regular.ttf",
-});
-
+// Helvetica is a built-in PDF font (bold included), so no font file is needed.
 // Base font size: 9pt  |  Date/Receipt# (meta): 14pt  |  Title: 15pt
 const s = StyleSheet.create({
   page: {
-    fontFamily: "Lexend",
+    fontFamily: "Helvetica",
     fontSize: 9,
     color: "#222",
     paddingHorizontal: 20,

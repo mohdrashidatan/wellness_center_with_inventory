@@ -9,6 +9,7 @@ import Modal from "@/shared/Modal";
 import SearchBar from "@/shared/SearchBar";
 import { usersService } from "@/services/usersService";
 import toast from "react-hot-toast";
+import SingpassLinksPanel from "@/components/singpass/SingpassLinksPanel";
 
 const ROLES = ["Therapist", "Admin", "Customer"];
 const emptyForm = { username: "", email: "", password: "", role: "Therapist" };
@@ -342,6 +343,8 @@ export default function UsersPage() {
           </div>
         </Modal>
       )}
+
+      <SingpassLinksPanel />
 
       {/* Deactivate Confirmation Modal */}
       {deactivateModal && selectedItem && (

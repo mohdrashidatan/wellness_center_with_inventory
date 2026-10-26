@@ -5,10 +5,10 @@ export default {
   theme: {
     extend: {
       fontSize: {
-        base: "16px",
+        base: ["15px", { lineHeight: "24px" }],
       },
       fontFamily: {
-        sans: ['"Lexend"', "sans-serif"],
+        sans: ['"Helvetica Neue"', "Helvetica", "Arimo", "Arial", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

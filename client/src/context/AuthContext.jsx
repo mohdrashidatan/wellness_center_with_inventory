@@ -17,16 +17,29 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const redirectByRole = (userInfo) => {
+    // ⏩ Auto-redirect based on role
+    if (userInfo?.role === "Therapist") navigate("/therapist");
+    else if (userInfo?.role === "Customer") navigate("/");
+    else navigate("/");
+  };
+
   const login = async (credentials) => {
     await authService.login(credentials);
     const userInfo = authService.getUserInfo();
     setUser(userInfo);
 
     console.log(userInfo);
-    // ⏩ Auto-redirect based on role
-    if (userInfo?.role === "Therapist") navigate("/therapist");
-    else if (userInfo?.role === "Customer") navigate("/");
-    else navigate("/");
+    redirectByRole(userInfo);
+  };
+
+  // Singpass login: the server has already authenticated the user and issued
+  // the same JWT as password login.
+  const loginWithToken = (token) => {
+    authService.setToken(token);
+    const userInfo = authService.getUserInfo();
+    setUser(userInfo);
+    redirectByRole(userInfo);
   };
 
   const logout = () => {
@@ -35,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     navigate("/login");
   };
 
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, login, loginWithToken, logout, loading }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

@@ -36,3 +36,9 @@ Thumbs.db
 
 # One-off data backups from migrations
 server/migrations/backups/
+
+# Singpass pilot: private keys and per-environment env files (never commit)
+server/secrets/
+server/.env.*
+!server/.env.example
+*private-jwks*.json

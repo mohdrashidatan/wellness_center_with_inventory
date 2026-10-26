@@ -153,6 +153,10 @@ const Navbar = () => {
                     <User size={16} className='shrink-0' />
                     <span>Sales</span>
                   </Button>
+                  <Button variant='ghost' className='w-full flex items-center space-x-2 justify-start text-gray-200 hover:text-purple-400' onClick={() => navigate("/profile")}>
+                    <User size={16} className='shrink-0' />
+                    <span>Profile</span>
+                  </Button>
                   <Button variant='ghost' className='w-full flex items-center space-x-2 justify-start text-gray-200 hover:text-red-400' onClick={handleLogout}>
                     <LogOut size={16} className='shrink-0' />
                     <span>Logout</span>

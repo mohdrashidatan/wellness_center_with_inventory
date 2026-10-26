@@ -117,6 +117,10 @@ const MOV_BADGE = {
   "Stock Adjustment":"bg-purple-100 text-purple-700",
 };
 
+// Stock leaving is shown negative. Adjustments already carry their own sign.
+const STOCK_OUT_TYPES = new Set(["POS Sale", "Transfer Out"]);
+const signedQty = (r) => (STOCK_OUT_TYPES.has(r.mov_type) ? -Math.abs(fmtNum(r.qty)) : fmtNum(r.qty));
+
 // ─── Stock Movements Panel ────────────────────────────────────────────────────
 function MovementsPanel({ initialMovType, initialProductId, initialProductName, initialDateTo }) {
   const [rows, setRows]                   = useState([]);
@@ -163,7 +167,7 @@ function MovementsPanel({ initialMovType, initialProductId, initialProductName, 
     const headers = ["Date", "Type", "Product", "Qty", "Reference", "Party", "Amount (RM)"];
     const csvRows = rows.map((r) => [
       fmtDate(r.mov_date), fmt(r.mov_type), fmt(r.product_name),
-      r.qty, fmt(r.reference), fmt(r.party_name), r.amount != null ? fmtPrice(r.amount) : "—",
+      signedQty(r), fmt(r.reference), fmt(r.party_name), r.amount != null ? fmtPrice(r.amount) : "—",
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
     const csv = [headers.join(","), ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -231,7 +235,9 @@ function MovementsPanel({ initialMovType, initialProductId, initialProductName, 
                   </span>
                 </TableCell>
                 <TableCell className="font-medium">{fmt(r.product_name)}</TableCell>
-                <TableCell className="text-right">{fmtNum(r.qty).toLocaleString()}</TableCell>
+                <TableCell className={`text-right ${signedQty(r) < 0 ? "text-red-600 font-medium" : ""}`}>
+                  {signedQty(r).toLocaleString()}
+                </TableCell>
                 <TableCell className="font-mono text-xs">{fmt(r.reference)}</TableCell>
                 <TableCell className="text-sm">{fmt(r.party_name)}</TableCell>
                 <TableCell className="text-right text-sm">{r.amount != null ? fmtPrice(r.amount) : "—"}</TableCell>

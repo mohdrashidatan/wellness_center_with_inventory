@@ -46,6 +46,20 @@ const loginUser = async (email, password) => {
     throw new Error("Invalid email or password");
   }
 
+  const token = await buildAuthToken(user, email);
+
+  return {
+    token,
+    user: {
+      userid: user.id,
+      email: user.email,
+    },
+  };
+};
+
+// Builds the app JWT for an authenticated user. Shared by password login and
+// Singpass login so both issue identical role and id claims.
+const buildAuthToken = async (user, email) => {
   let token;
 
   if (user.role == "Customer") {
@@ -76,13 +90,7 @@ const loginUser = async (email, password) => {
     });
   }
 
-  return {
-    token,
-    user: {
-      userid: user.id,
-      email: user.email,
-    },
-  };
+  return token;
 };
 
 const requestPasswordReset = async (email) => {
@@ -121,6 +129,7 @@ const resetPassword = async (token, newPassword) => {
 module.exports = {
   registerUser,
   loginUser,
+  buildAuthToken,
   requestPasswordReset,
   resetPassword,
 };

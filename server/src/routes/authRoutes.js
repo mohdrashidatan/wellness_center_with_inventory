@@ -12,8 +12,17 @@ const forgotPasswordLimiter = rateLimit({
   message: "Too many password reset requests, please try again later",
 });
 
+// Pilot guard: public signup creates Therapist accounts (see userModel.createUser),
+// so it can be switched off with DISABLE_PUBLIC_SIGNUP=true.
+const blockWhenSignupDisabled = (req, res, next) => {
+  if (process.env.DISABLE_PUBLIC_SIGNUP === "true") {
+    return res.status(403).json({ success: false, message: "Public signup is disabled" });
+  }
+  next();
+};
+
 // Registration route
-router.post("/signup", signupUser);
+router.post("/signup", blockWhenSignupDisabled, signupUser);
 
 // Login route
 router.post("/login", validateBody(loginSchema), loginUser);
